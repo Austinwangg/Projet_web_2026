@@ -1,6 +1,43 @@
+import { useState, useEffect } from 'react';
 import { adminOffers } from '../data.js';
+import { getUsers, setUserRole, deleteUser } from '../services/adminService.js';
 
-export default function ScreenAdmin({ T, lang }) {
+export default function ScreenAdmin({ T, lang, user }) {
+  const [adminTab, setAdminTab] = useState('dashboard');
+  const [users, setUsers]       = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersMsg, setUsersMsg] = useState('');
+
+  useEffect(() => {
+    if (adminTab === 'users') {
+      setUsersLoading(true);
+      getUsers()
+        .then(r => setUsers(r.data))
+        .catch(() => setUsers([]))
+        .finally(() => setUsersLoading(false));
+    }
+  }, [adminTab]);
+
+  const handleToggleRole = async (u) => {
+    const newRole = u.role === 'admin' ? 'user' : 'admin';
+    if (u.id === user?.id) { setUsersMsg(lang === 'fr' ? 'Vous ne pouvez pas modifier votre propre rôle.' : 'You cannot change your own role.'); return; }
+    try {
+      await setUserRole(u.id, newRole);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
+      setUsersMsg(lang === 'fr' ? `Rôle de ${u.nom} mis à jour.` : `${u.nom}'s role updated.`);
+    } catch { setUsersMsg('Erreur.'); }
+  };
+
+  const handleDeleteUser = async (u) => {
+    if (u.id === user?.id) { setUsersMsg(lang === 'fr' ? 'Vous ne pouvez pas vous supprimer.' : 'You cannot delete yourself.'); return; }
+    if (!window.confirm(lang === 'fr' ? `Supprimer ${u.nom} ?` : `Delete ${u.nom}?`)) return;
+    try {
+      await deleteUser(u.id);
+      setUsers(prev => prev.filter(x => x.id !== u.id));
+      setUsersMsg(lang === 'fr' ? `${u.nom} supprimé.` : `${u.nom} deleted.`);
+    } catch { setUsersMsg('Erreur.'); }
+  };
+
   const offers = adminOffers;
   const kpiValues = ['247', '12 480', '186 240 €', '4.2 %'];
   const kpiDirs = ['up', 'up', 'up', 'down'];
@@ -116,7 +153,7 @@ export default function ScreenAdmin({ T, lang }) {
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>
-      <div className="between mb-32" style={{ alignItems: 'flex-end' }}>
+      <div className="between mb-24" style={{ alignItems: 'flex-end' }}>
         <div>
           <span className="eyebrow">{T.admin.eyebrow}</span>
           <h1 className="serif mt-8" style={{ fontSize: 'clamp(48px, 6vw, 72px)', lineHeight: 1 }}>
@@ -132,6 +169,100 @@ export default function ScreenAdmin({ T, lang }) {
         </div>
       </div>
 
+      <div className="tabs mb-32">
+        {[
+          { id: 'dashboard', label: lang === 'fr' ? 'Tableau de bord' : 'Dashboard' },
+          { id: 'users',     label: lang === 'fr' ? 'Utilisateurs'    : 'Users' },
+        ].map(t => (
+          <div key={t.id} className={`tab ${adminTab === t.id ? 'active' : ''}`} onClick={() => setAdminTab(t.id)}>{t.label}</div>
+        ))}
+      </div>
+
+      {adminTab === 'users' && (
+        <div className="fade-up">
+          {usersMsg && (
+            <div style={{ fontSize: 13, padding: '8px 14px', borderRadius: 8, marginBottom: 16, background: 'var(--surface-2)', color: 'var(--ink)' }}>
+              {usersMsg}
+            </div>
+          )}
+          <div className="card-tile" style={{ padding: 0 }}>
+            <div className="between" style={{ padding: '24px 24px 16px' }}>
+              <div>
+                <span className="eyebrow">{lang === 'fr' ? 'GESTION' : 'MANAGEMENT'}</span>
+                <h3 className="serif mt-4" style={{ fontSize: 22 }}>{lang === 'fr' ? 'Utilisateurs & rôles' : 'Users & roles'}</h3>
+              </div>
+              <span className="mono muted" style={{ fontSize: 12 }}>{users.length} {lang === 'fr' ? 'comptes' : 'accounts'}</span>
+            </div>
+            {usersLoading && <p className="muted" style={{ padding: '16px 24px' }}>{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
+            {!usersLoading && (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    {[
+                      lang === 'fr' ? 'Nom' : 'Name',
+                      'Email',
+                      lang === 'fr' ? 'Rôle' : 'Role',
+                      lang === 'fr' ? 'Inscrit le' : 'Joined',
+                      ''
+                    ].map((c, i) => <th key={i}>{c}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="row gap-10">
+                          <div className="avatar" style={{ width: 32, height: 32, fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)' }}>
+                            {(u.prenom || u.nom || '?')[0].toUpperCase()}
+                          </div>
+                          <strong>{u.prenom ? `${u.prenom} ${u.nom}` : u.nom}</strong>
+                        </div>
+                      </td>
+                      <td className="muted" style={{ fontSize: 13 }}>{u.email}</td>
+                      <td>
+                        <span className="tag">
+                          <span className={`dot ${u.role === 'admin' ? 'green' : ''}`}></span>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="mono muted" style={{ fontSize: 12 }}>
+                        {new Date(u.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td>
+                        <div className="row gap-8">
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => handleToggleRole(u)}
+                            disabled={u.id === user?.id}
+                            title={u.role === 'admin'
+                              ? (lang === 'fr' ? 'Retirer les droits admin' : 'Remove admin rights')
+                              : (lang === 'fr' ? 'Promouvoir administrateur' : 'Promote to admin')}
+                          >
+                            {u.role === 'admin'
+                              ? (lang === 'fr' ? '↓ Rétrograder' : '↓ Demote')
+                              : (lang === 'fr' ? '↑ Promouvoir' : '↑ Promote')}
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)' }}
+                            onClick={() => handleDeleteUser(u)}
+                            disabled={u.id === user?.id}
+                          >
+                            {lang === 'fr' ? 'Supprimer' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'dashboard' && (
+      <>
       <div className="grid grid-4 mb-32">
         {T.admin.kpis.map((k, i) => (
           <div key={i} className="kpi">
@@ -263,6 +394,8 @@ export default function ScreenAdmin({ T, lang }) {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </main>
   );
 }

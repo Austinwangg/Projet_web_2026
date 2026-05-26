@@ -24,7 +24,9 @@ export default function App() {
     travelers: { adult: 2, student: 0, child: 0 },
     type: 'all'
   });
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vv_user')) || null; } catch { return null; }
+  });
   const [authMode, setAuthMode] = useState(null);
   const [toast, setToast] = useState('');
   const [theme, setTheme] = useState('light');
@@ -54,15 +56,31 @@ export default function App() {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
-  const onAuth = (name) => {
-    const parts = name.trim().split(' ');
+  const onAuth = (userData) => {
+    const nom = userData.nom || '';
+    const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-    setUser({ name, initials: initials.toUpperCase() });
+    const enriched = { ...userData, name: nom, initials: initials.toUpperCase() };
+    setUser(enriched);
+    localStorage.setItem('vv_user', JSON.stringify(enriched));
     setAuthMode(null);
     setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
   };
 
-  const onSignOut = () => { setUser(null); navigate('home'); };
+  const onUpdateUser = (userData) => {
+    const nom = userData.nom || '';
+    const parts = nom.trim().split(' ');
+    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    const enriched = { ...user, ...userData, name: nom, initials: initials.toUpperCase() };
+    setUser(enriched);
+    localStorage.setItem('vv_user', JSON.stringify(enriched));
+  };
+
+  const onSignOut = () => {
+    setUser(null);
+    localStorage.removeItem('vv_user');
+    navigate('home');
+  };
 
   return (
     <>
@@ -93,10 +111,17 @@ export default function App() {
         <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} />
       )}
       {screen === 'account' && (
-        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} />
+        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
       )}
-      {screen === 'admin' && (
-        <ScreenAdmin T={T} lang={lang} navigate={navigate} />
+      {screen === 'admin' && user?.role === 'admin' && (
+        <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
+      )}
+      {screen === 'admin' && user?.role !== 'admin' && (
+        <main className="container" style={{ paddingTop: 80, textAlign: 'center' }}>
+          <p className="serif" style={{ fontSize: 32 }}>Accès refusé</p>
+          <p className="muted mt-8">Cette section est réservée aux administrateurs.</p>
+          <button className="btn btn-primary mt-24" onClick={() => navigate('home')}>Retour à l'accueil</button>
+        </main>
       )}
 
       <Footer T={T} />
