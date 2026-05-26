@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../models/Notification.php';
 
 class NotificationController {
 
@@ -7,46 +7,56 @@ class NotificationController {
         $method = $_SERVER['REQUEST_METHOD'];
         $id     = isset($_GET['id'])      ? (int) $_GET['id']      : null;
         $userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
-
         header('Content-Type: application/json; charset=utf-8');
 
         switch ($method) {
+
             case 'GET':
                 if (!$userId) {
                     http_response_code(400);
                     echo json_encode(['error' => 'user_id requis']);
                     return;
                 }
-                $stmt = getDB()->prepare(
-                    'SELECT * FROM notifications WHERE utilisateur_id = ? ORDER BY created_at DESC'
-                );
-                $stmt->execute([$userId]);
-                echo json_encode($stmt->fetchAll(), JSON_UNESCAPED_UNICODE);
+                $notifs = Notification::getByUser($userId);
+                $unread = Notification::countUnread($userId);
+                echo json_encode(['notifications' => $notifs, 'unread' => $unread], JSON_UNESCAPED_UNICODE);
                 break;
 
             case 'POST':
-                $data = json_decode(file_get_contents('php://input'), true);
-                $uid  = (int) ($data['utilisateur_id'] ?? 0);
-                $msgFr = trim($data['message_fr'] ?? '');
-                $msgEn = trim($data['message_en'] ?? $msgFr);
-                $icone = trim($data['icone']      ?? '✦');
+                $data    = json_decode(file_get_contents('php://input'), true);
+                $uId     = (int) ($data['utilisateur_id'] ?? 0);
+                $type    = trim($data['type']    ?? 'info');
+                $titre   = trim($data['titre']   ?? '');
+                $message = trim($data['message'] ?? '');
 
-                if (!$uid || !$msgFr) {
+                if (!$uId || !$titre) {
                     http_response_code(422);
-                    echo json_encode(['error' => 'utilisateur_id et message_fr requis']);
+                    echo json_encode(['error' => 'utilisateur_id et titre requis']);
                     return;
                 }
 
-                $stmt = getDB()->prepare(
-                    'INSERT INTO notifications (utilisateur_id, icone, message_fr, message_en) VALUES (?,?,?,?)'
-                );
-                $stmt->execute([$uid, $icone, $msgFr, $msgEn]);
-                $newId = (int) getDB()->lastInsertId();
+                $newId = Notification::create($uId, $type, $titre, $message);
                 http_response_code(201);
                 echo json_encode(['id' => $newId, 'message' => 'Notification créée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             case 'PUT':
+                if (!$id) {
+                    // Marquer tout lu pour un utilisateur
+                    $data   = json_decode(file_get_contents('php://input'), true);
+                    $uId    = (int) ($data['utilisateur_id'] ?? 0);
+                    $action = $data['action'] ?? '';
+                    if ($uId && $action === 'mark_all_read') {
+                        Notification::markAllRead($uId);
+                        echo json_encode(['message' => 'Toutes les notifications marquées comme lues'], JSON_UNESCAPED_UNICODE);
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'id ou action mark_all_read requis']);
+                    }
+                    return;
+                }
+                Notification::markRead($id);
+                echo json_encode(['message' => 'Notification marquée comme lue'], JSON_UNESCAPED_UNICODE);
                 // Marquer lu (une ou toutes)
                 $data  = json_decode(file_get_contents('php://input'), true);
                 $allUid = isset($data['mark_all_read']) ? (int) $data['mark_all_read'] : null;

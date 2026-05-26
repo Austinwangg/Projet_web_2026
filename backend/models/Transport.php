@@ -43,4 +43,27 @@ class Transport {
         $stmt = getDB()->prepare('DELETE FROM transports WHERE id = ?');
         return $stmt->execute([$id]);
     }
+
+    public static function isAvailable(int $id): bool {
+        $stmt = getDB()->prepare('SELECT places_dispo FROM transports WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row && (int) $row['places_dispo'] > 0;
+    }
+
+    public static function decrementPlaces(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE transports SET places_dispo = places_dispo - ?
+             WHERE id = ? AND places_dispo >= ?'
+        );
+        $stmt->execute([$nb, $id, $nb]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public static function incrementPlaces(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE transports SET places_dispo = places_dispo + ? WHERE id = ?'
+        );
+        return $stmt->execute([$nb, $id]);
+    }
 }

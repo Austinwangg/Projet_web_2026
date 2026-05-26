@@ -1,48 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Logo from './Logo.jsx';
 import { login, register } from '../services/authService.js';
 
 export default function AuthModal({ mode, T, onClose, onAuth }) {
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName]         = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
-import api from '../services/api.js';
-
-export default function AuthModal({ mode, T, onClose, onAuth }) {
-  const [email, setEmail] = useState('jean@exemple.com');
-  const [password, setPassword] = useState('password');
-  const [name, setName] = useState('Jean Dupont');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (mode) {
+      setEmail('');
+      setPassword('');
+      setName('');
+      setError('');
+    }
+  }, [mode]);
 
   if (!mode) return null;
   const isSignup = mode === 'signup';
 
   const handleSubmit = async () => {
     setError('');
-    if (!email || !password || (isSignup && !name)) {
-      setError('Veuillez remplir tous les champs.');
-      return;
-    }
     setLoading(true);
     try {
-      const res = isSignup
-        ? await register(name, email, password)
-        : await login(email, password);
-      onAuth(res.data);
+      let userData;
+      if (isSignup) {
+        const res = await register(name, email, password);
+        userData = res.data;
+      } else {
+        const res = await login(email, password);
+        userData = res.data;
+      }
+      onAuth(userData);
     } catch (err) {
-      setError(err.response?.data?.error || 'Une erreur est survenue.');
-    setLoading(true);
-    try {
-      const payload = isSignup
-        ? { action: 'register', nom: name, email, password }
-        : { action: 'login', email, password };
-      const res = await api.post('/auth', payload);
-      onAuth(res.data);
-    } catch (e) {
-      setError(e.response?.data?.error || (isSignup ? 'Erreur inscription' : 'Email ou mot de passe incorrect'));
+      setError(err.response?.data?.error || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -118,6 +111,11 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
           </div>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
           {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
+          {error && (
+            <div style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'color-mix(in oklab, var(--danger) 10%, var(--surface))', borderRadius: 6 }}>
+              {error}
+            </div>
+          )}
           <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
             {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           </button>

@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { destinations, reservations } from '../data.js';
+import Placeholder from '../components/Placeholder.jsx';
+import { getNotifications, markRead, markAllRead } from '../services/notificationsService.js';
 import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
@@ -264,49 +267,37 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
       {/* ── Notifications ── */}
       {tab === 'notifications' && (
         <div className="col gap-12 fade-up" style={{ maxWidth: 720 }}>
-          {notifsLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
-          {!notifsLoading && notifs.length > 0 && (
-            <div className="between mb-8">
-              <span className="mono muted" style={{ fontSize: 11 }}>
-                {unreadCount > 0 ? `${unreadCount} ${lang === 'fr' ? 'non lu(s)' : 'unread'}` : lang === 'fr' ? 'Tout lu' : 'All read'}
-              </span>
-              {unreadCount > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
-                  {lang === 'fr' ? 'Tout marquer comme lu' : 'Mark all as read'}
-                </button>
-              )}
+          {unreadCount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
+                {lang === 'fr' ? 'Tout marquer comme lu' : 'Mark all as read'}
+              </button>
             </div>
           )}
-          {!notifsLoading && notifs.length === 0 && (
-            <p className="muted">{lang === 'fr' ? 'Aucune notification.' : 'No notifications.'}</p>
-          )}
-          {notifs.map(n => (
-            <div key={n.id} className="card-tile row gap-16"
-              style={{ padding: 18, alignItems: 'center', opacity: n.lu ? 0.65 : 1 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', fontSize: 16 }}>
-                {n.icone}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: n.lu ? 400 : 600 }}>
-                  {lang === 'fr' ? n.message_fr : (n.message_en || n.message_fr)}
-                </div>
-                <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
-                  {new Date(n.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()}
-                </div>
-              </div>
-              <div className="row gap-8">
-                {!n.lu && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleMarkRead(n.id)} title={lang === 'fr' ? 'Marquer comme lu' : 'Mark as read'}>
-                    ✓
-                  </button>
-                )}
-                <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteNotif(n.id)} title={lang === 'fr' ? 'Supprimer' : 'Delete'}>
-                  ✕
-                </button>
-              </div>
-              {!n.lu && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
+          {notifs.length === 0 ? (
+            <div className="card-tile" style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)' }}>
+              {lang === 'fr' ? 'Aucune notification pour le moment.' : 'No notifications yet.'}
             </div>
-          ))}
+          ) : (
+            notifs.map((n) => (
+              <div
+                key={n.id}
+                className="card-tile row gap-16"
+                style={{ padding: 18, alignItems: 'center', background: n.lu === 0 ? 'color-mix(in oklab, var(--primary) 5%, var(--surface))' : undefined, cursor: n.lu === 0 ? 'pointer' : 'default' }}
+                onClick={() => n.lu === 0 && handleMarkRead(n.id)}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  {iconForType(n.type)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: n.lu === 0 ? 600 : 500 }}>{n.titre}</div>
+                  {n.message && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{n.message}</div>}
+                  <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>{formatDate(n.created_at).toUpperCase()}</div>
+                </div>
+                {n.lu === 0 && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
+              </div>
+            ))
+          )}
         </div>
       )}
     </main>

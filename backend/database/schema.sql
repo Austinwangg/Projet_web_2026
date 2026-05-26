@@ -11,6 +11,7 @@ USE voyagevista;
 
 -- ── Suppression dans l'ordre inverse des FK (enfants avant parents)
 -- Cette approche fonctionne dans phpMyAdmin sans toucher FOREIGN_KEY_CHECKS
+DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS reservations;
 DROP TABLE IF EXISTS activites;
 DROP TABLE IF EXISTS hebergements;
@@ -52,6 +53,7 @@ CREATE TABLE hebergements (
   avantage_fr     VARCHAR(200),
   avantage_en     VARCHAR(200),
   image_url       VARCHAR(500),
+  nb_chambres_dispo INT NOT NULL DEFAULT 10,
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -67,6 +69,7 @@ CREATE TABLE transports (
   duree          VARCHAR(20),
   horaire        VARCHAR(50),
   prix           DECIMAL(8,2) NOT NULL,
+  places_dispo   INT NOT NULL DEFAULT 50,
   created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -82,6 +85,7 @@ CREATE TABLE activites (
   prix            DECIMAL(8,2) DEFAULT 0.00,
   description_fr  TEXT,
   description_en  TEXT,
+  places_restantes INT NOT NULL DEFAULT 20,
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -94,6 +98,18 @@ CREATE TABLE utilisateurs (
   mot_de_passe  VARCHAR(255) NOT NULL,
   role          ENUM('user','admin') DEFAULT 'user',
   created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ── Notifications ───────────────────────────────────────────
+CREATE TABLE notifications (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  utilisateur_id  INT NOT NULL,
+  type            VARCHAR(50) NOT NULL DEFAULT 'info',
+  titre           VARCHAR(255) NOT NULL,
+  message         TEXT,
+  lu              TINYINT(1) NOT NULL DEFAULT 0,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ── Réservations ────────────────────────────────────────────
