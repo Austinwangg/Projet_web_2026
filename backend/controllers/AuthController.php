@@ -23,9 +23,15 @@ class AuthController {
             case 'login':
                 self::login($data);
                 break;
+            case 'update_profile':
+                self::updateProfile($data);
+                break;
+            case 'change_password':
+                self::changePassword($data);
+                break;
             default:
                 http_response_code(400);
-                echo json_encode(['error' => 'action invalide (register|login)']);
+                echo json_encode(['error' => 'action invalide (register|login|update_profile|change_password)']);
         }
     }
 
@@ -75,10 +81,72 @@ class AuthController {
         }
 
         echo json_encode([
-            'id'    => $user['id'],
-            'nom'   => $user['nom'],
-            'email' => $user['email'],
-            'role'  => $user['role'],
+            'id'             => $user['id'],
+            'nom'            => $user['nom'],
+            'prenom'         => $user['prenom']         ?? '',
+            'email'          => $user['email'],
+            'telephone'      => $user['telephone']      ?? '',
+            'date_naissance' => $user['date_naissance'] ?? '',
+            'role'           => $user['role'],
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function updateProfile(array $data): void {
+        $id    = (int) ($data['id'] ?? 0);
+        $nom   = trim($data['nom']   ?? '');
+        $prenom = trim($data['prenom'] ?? '');
+        $email = trim($data['email'] ?? '');
+        $tel   = trim($data['telephone']      ?? '');
+        $dob   = trim($data['date_naissance'] ?? '');
+
+        if (!$id || !$nom || !$email) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Champs nom et email requis']);
+            return;
+        }
+
+        // Vérifier unicité email (sauf pour l'utilisateur lui-même)
+        $check = getDB()->prepare('SELECT id FROM utilisateurs WHERE email = ? AND id != ?');
+        $check->execute([$email, $id]);
+        if ($check->fetch()) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Email déjà utilisé par un autre compte']);
+            return;
+        }
+
+        $stmt = getDB()->prepare(
+            'UPDATE utilisateurs SET nom=?, prenom=?, email=?, telephone=?, date_naissance=? WHERE id=?'
+        );
+        $stmt->execute([$nom, $prenom ?: null, $email, $tel ?: null, $dob ?: null, $id]);
+
+        $row = getDB()->prepare('SELECT id, nom, prenom, email, telephone, date_naissance, role FROM utilisateurs WHERE id=?');
+        $row->execute([$id]);
+        echo json_encode($row->fetch(), JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function changePassword(array $data): void {
+        $id       = (int) ($data['id']           ?? 0);
+        $current  = $data['current_password']    ?? '';
+        $newPass  = $data['new_password']        ?? '';
+
+        if (!$id || !$current || !$newPass || strlen($newPass) < 6) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Données invalides (minimum 6 caractères)']);
+            return;
+        }
+
+        $stmt = getDB()->prepare('SELECT mot_de_passe FROM utilisateurs WHERE id=?');
+        $stmt->execute([$id]);
+        $user = $stmt->fetch();
+
+        if (!$user || !password_verify($current, $user['mot_de_passe'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Mot de passe actuel incorrect']);
+            return;
+        }
+
+        $hash = password_hash($newPass, PASSWORD_BCRYPT);
+        getDB()->prepare('UPDATE utilisateurs SET mot_de_passe=? WHERE id=?')->execute([$hash, $id]);
+        echo json_encode(['message' => 'Mot de passe mis à jour'], JSON_UNESCAPED_UNICODE);
     }
 }

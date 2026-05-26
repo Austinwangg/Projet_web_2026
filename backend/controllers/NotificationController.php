@@ -57,6 +57,26 @@ class NotificationController {
                 }
                 Notification::markRead($id);
                 echo json_encode(['message' => 'Notification marquée comme lue'], JSON_UNESCAPED_UNICODE);
+                // Marquer lu (une ou toutes)
+                $data  = json_decode(file_get_contents('php://input'), true);
+                $allUid = isset($data['mark_all_read']) ? (int) $data['mark_all_read'] : null;
+
+                if ($allUid) {
+                    getDB()->prepare('UPDATE notifications SET lu=1 WHERE utilisateur_id=?')->execute([$allUid]);
+                    echo json_encode(['message' => 'Toutes les notifications marquées lues'], JSON_UNESCAPED_UNICODE);
+                } elseif ($id) {
+                    getDB()->prepare('UPDATE notifications SET lu=1 WHERE id=?')->execute([$id]);
+                    echo json_encode(['message' => 'Notification marquée lue'], JSON_UNESCAPED_UNICODE);
+                } else {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'id ou mark_all_read requis']);
+                }
+                break;
+
+            case 'DELETE':
+                if (!$id) { http_response_code(400); echo json_encode(['error' => 'id requis']); return; }
+                getDB()->prepare('DELETE FROM notifications WHERE id=?')->execute([$id]);
+                echo json_encode(['message' => 'Notification supprimée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             default:
