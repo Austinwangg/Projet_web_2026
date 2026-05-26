@@ -23,16 +23,40 @@ class ReservationController {
                 break;
 
             case 'POST':
-                $data  = json_decode(file_get_contents('php://input'), true);
-                $newId = Reservation::create($data);
-                http_response_code(201);
-                echo json_encode(['id' => $newId, 'message' => 'Réservation créée'], JSON_UNESCAPED_UNICODE);
+                $data = json_decode(file_get_contents('php://input'), true);
+                try {
+                    $newId = Reservation::create($data);
+
+                    if (!empty($data['activite_ids']) && is_array($data['activite_ids'])) {
+                        Reservation::addActivites(
+                            $newId,
+                            $data['activite_ids'],
+                            (int) ($data['nb_voyageurs'] ?? 1)
+                        );
+                    }
+
+                    http_response_code(201);
+                    $created = Reservation::getById($newId);
+                    echo json_encode([
+                        'id'        => $newId,
+                        'reference' => $created['reference'] ?? '',
+                        'message'   => 'Réservation créée',
+                    ], JSON_UNESCAPED_UNICODE);
+                } catch (\Exception $e) {
+                    http_response_code(409);
+                    echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+                }
                 break;
 
             case 'PUT':
                 if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 $data = json_decode(file_get_contents('php://input'), true);
-                Reservation::update($id, $data);
+
+                if (isset($data['statut']) && $data['statut'] === 'annulee') {
+                    Reservation::cancel($id);
+                } else {
+                    Reservation::update($id, $data);
+                }
                 echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
                 break;
 

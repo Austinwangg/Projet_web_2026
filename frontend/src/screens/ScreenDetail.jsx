@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { destinations, shanghaiDetail } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import Stars from '../components/Stars.jsx';
+import api from '../services/api.js';
 
 export default function ScreenDetail({ T, lang, navigate, cart, addToCart, removeFromCart, destId, cardStyle }) {
   const D = destinations;
@@ -13,6 +14,21 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
   const [selectedHotel, setSelectedHotel] = useState(detail.hotels[0].id);
   const [selectedActivities, setSelectedActivities] = useState([detail.activities[0].id, detail.activities[1].id]);
   const [favorite, setFavorite] = useState(false);
+
+  // DB IDs for hebergements and activites (for saving reservations)
+  const [dbHebergements, setDbHebergements] = useState([]);
+  const [dbActivites, setDbActivites] = useState([]);
+
+  useEffect(() => {
+    api.get(`/destinations?slug=${destId}`)
+      .then(r => {
+        const destDbId = r.data?.id;
+        if (!destDbId) return;
+        api.get(`/hebergements?destination_id=${destDbId}`).then(h => setDbHebergements(h.data || [])).catch(() => {});
+        api.get(`/activites?destination_id=${destDbId}`).then(a => setDbActivites(a.data || [])).catch(() => {});
+      })
+      .catch(() => {});
+  }, [destId]);
 
   const flight = detail.flights.find(f => f.id === selectedFlight);
   const hotel = detail.hotels.find(h => h.id === selectedHotel);
@@ -29,10 +45,34 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
   );
 
   const onAddToCart = () => {
+    // Match static hotel to DB hebergement by name
+    const dbHotel = dbHebergements.find(h => h.nom === hotel.name);
+    // Match static activities to DB activites by French name
     addToCart([
-      { id: 'flight-' + flight.id, kind: 'flight', title: `${lang === 'fr' ? 'Vol A/R' : 'Round-trip flight'} · ${flight.from.split(' ')[0]} → ${dest.city}`, sub: `${flight.airline} · ${flight.duration}`, price: flight.price * travelers, icon: '✈' },
-      { id: 'hotel-' + hotel.id, kind: 'hotel', title: hotel.name, sub: `${hotel.area} · ${nights} ${lang === 'fr' ? 'nuits' : 'nights'}`, price: hotel.pricePerNight * nights, icon: '⌂' },
-      ...acts.map(a => ({ id: 'act-' + a.id, kind: 'activity', title: typeof a.name === 'object' ? a.name[lang] : a.name, sub: `${a.duration} · ${travelers} ${lang === 'fr' ? 'pers.' : 'pax'}`, price: a.price * travelers, icon: '◇' }))
+      {
+        id: 'flight-' + flight.id, kind: 'flight', destSlug: destId,
+        title: `${lang === 'fr' ? 'Vol A/R' : 'Round-trip flight'} · ${flight.from.split(' ')[0]} → ${dest.city}`,
+        sub: `${flight.airline} · ${flight.duration}`,
+        price: flight.price * travelers, icon: '✈',
+      },
+      {
+        id: 'hotel-' + hotel.id, kind: 'hotel', destSlug: destId,
+        hebergementDbId: dbHotel?.id || null,
+        title: hotel.name,
+        sub: `${hotel.area} · ${nights} ${lang === 'fr' ? 'nuits' : 'nights'}`,
+        price: hotel.pricePerNight * nights, icon: '⌂',
+      },
+      ...acts.map(a => {
+        const actName = typeof a.name === 'object' ? a.name.fr : a.name;
+        const dbAct = dbActivites.find(da => da.nom_fr === actName);
+        return {
+          id: 'act-' + a.id, kind: 'activity', destSlug: destId,
+          activiteDbId: dbAct?.id || null,
+          title: typeof a.name === 'object' ? a.name[lang] : a.name,
+          sub: `${a.duration} · ${travelers} ${lang === 'fr' ? 'pers.' : 'pax'}`,
+          price: a.price * travelers, icon: '◇',
+        };
+      }),
     ]);
     navigate('cart');
   };

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
-import { getNotifications, markRead, markAllRead, deleteNotification } from '../services/notificationService.js';
+import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
+import { updateReservationStatus } from '../services/reservationsService.js';
 import api from '../services/api.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser }) {
@@ -26,6 +27,11 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   // Réservations
   const [reservations, setReservations] = useState([]);
   const [resLoading, setResLoading]     = useState(false);
+  const [resActionId, setResActionId]   = useState(null); // id of reservation being actioned
+  const [modifyTarget, setModifyTarget] = useState(null); // reservation being modified
+  const [modifyData, setModifyData]     = useState({ date_depart: '', date_retour: '', nb_voyageurs: 1 });
+  const [modifySaving, setModifySaving] = useState(false);
+  const [modifyMsg, setModifyMsg]       = useState('');
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -96,6 +102,55 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     setNotifs(prev => prev.filter(n => n.id !== id));
   };
 
+  const handleCancelReservation = async (r) => {
+    if (!window.confirm(lang === 'fr' ? `Annuler la réservation ${r.reference} ?` : `Cancel booking ${r.reference}?`)) return;
+    setResActionId(r.id);
+    try {
+      await updateReservationStatus(r.id, 'annulee');
+      setReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
+      createNotification({
+        utilisateur_id: user.id,
+        type:    'info',
+        titre:   lang === 'fr' ? `Réservation annulée · ${r.reference}` : `Booking cancelled · ${r.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation ${r.reference} a été annulée.`
+          : `Your booking ${r.reference} has been cancelled.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setResActionId(null);
+    }
+  };
+
+  const openModify = (r) => {
+    setModifyTarget(r);
+    setModifyData({ date_depart: r.date_depart, date_retour: r.date_retour, nb_voyageurs: r.nb_voyageurs });
+    setModifyMsg('');
+  };
+
+  const handleModifyReservation = async () => {
+    if (!modifyTarget) return;
+    setModifySaving(true);
+    setModifyMsg('');
+    try {
+      await api.put(`/reservations?id=${modifyTarget.id}`, modifyData);
+      setReservations(prev => prev.map(x => x.id === modifyTarget.id ? { ...x, ...modifyData } : x));
+      createNotification({
+        utilisateur_id: user.id,
+        type:    'info',
+        titre:   lang === 'fr' ? `Réservation modifiée · ${modifyTarget.reference}` : `Booking updated · ${modifyTarget.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation ${modifyTarget.reference} a été mise à jour.`
+          : `Your booking ${modifyTarget.reference} has been updated.`,
+      }).catch(() => {});
+      setModifyMsg(lang === 'fr' ? '✓ Réservation mise à jour' : '✓ Booking updated');
+      setTimeout(() => setModifyTarget(null), 1200);
+    } catch (err) {
+      setModifyMsg(err.response?.data?.error || 'Erreur lors de la modification.');
+    } finally {
+      setModifySaving(false);
+    }
+  };
+
   const unreadCount = notifs.filter(n => !n.lu).length;
 
   const iconForType = (type) => ({ booking: '✈️', promotion: '🎁', info: 'ℹ️', alert: '⚠️' }[type] || '🔔');
@@ -155,6 +210,8 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             const destSlug = r.slug || '';
             const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
             const destName = lang === 'fr' ? (r.ville || destSlug) : (r.pays_en || r.ville || destSlug);
+            const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
+            const canModify = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
                 <Placeholder label={destName.toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
@@ -171,13 +228,71 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                 <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
                   <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
                   <div className="row gap-8">
-                    {r.statut === 'confirmee' && <button className="btn btn-outline btn-sm">{T.account.modify}</button>}
+                    {canModify && (
+                      <button className="btn btn-outline btn-sm" onClick={() => openModify(r)}>
+                        {T.account.modify}
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--danger)' }}
+                        disabled={resActionId === r.id}
+                        onClick={() => handleCancelReservation(r)}>
+                        {resActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
+                      </button>
+                    )}
                     <button className="btn btn-ghost btn-sm" onClick={() => navigate('detail', { id: r.slug || 'shanghai' })}>{T.account.details} →</button>
                   </div>
                 </div>
               </div>
             );
           })}
+
+          {/* Modify modal */}
+          {modifyTarget && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center', zIndex: 1000 }} onClick={() => setModifyTarget(null)}>
+              <div className="card-tile fade-up" style={{ padding: 40, width: 480, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+                <h3 className="serif mb-24" style={{ fontSize: 24 }}>
+                  {lang === 'fr' ? 'Modifier la réservation' : 'Modify booking'} · {modifyTarget.reference}
+                </h3>
+                <div className="col gap-16">
+                  <div className="grid grid-2 gap-16">
+                    <div>
+                      <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Departure date'}</label>
+                      <input className="input" type="date" value={modifyData.date_depart}
+                        onChange={e => setModifyData(d => ({ ...d, date_depart: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="field-label">{lang === 'fr' ? 'Date de retour' : 'Return date'}</label>
+                      <input className="input" type="date" value={modifyData.date_retour}
+                        onChange={e => setModifyData(d => ({ ...d, date_retour: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
+                    <input className="input" type="number" min="1" max="20" value={modifyData.nb_voyageurs}
+                      onChange={e => setModifyData(d => ({ ...d, nb_voyageurs: parseInt(e.target.value, 10) || 1 }))} />
+                  </div>
+                  {modifyMsg && (
+                    <div style={{ fontSize: 13, padding: '8px 12px', borderRadius: 8,
+                      color: modifyMsg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)',
+                      background: modifyMsg.startsWith('✓') ? 'color-mix(in oklab,var(--ok) 10%,transparent)' : 'color-mix(in oklab,var(--danger) 10%,transparent)' }}>
+                      {modifyMsg}
+                    </div>
+                  )}
+                  <div className="row gap-12 mt-8">
+                    <button className="btn btn-primary" onClick={handleModifyReservation} disabled={modifySaving}>
+                      {modifySaving ? '…' : (lang === 'fr' ? 'Enregistrer' : 'Save changes')}
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => setModifyTarget(null)}>
+                      {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

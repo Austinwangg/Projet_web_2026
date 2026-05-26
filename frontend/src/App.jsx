@@ -114,7 +114,7 @@ export default function App() {
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
       )}
       {screen === 'payment' && (
-        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} />
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
       )}
       {screen === 'account' && (
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
