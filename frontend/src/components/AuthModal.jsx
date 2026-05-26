@@ -1,12 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Logo from './Logo.jsx';
+import { login, register } from '../services/authService.js';
 
 export default function AuthModal({ mode, T, onClose, onAuth }) {
-  const [email, setEmail] = useState('jean.dupont@mail.com');
-  const [password, setPassword] = useState('••••••••');
-  const [name, setName] = useState('Jean Dupont');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (mode) {
+      setEmail('');
+      setPassword('');
+      setName('');
+      setError('');
+    }
+  }, [mode]);
+
   if (!mode) return null;
   const isSignup = mode === 'signup';
+
+  const handleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      let userData;
+      if (isSignup) {
+        const res = await register(name, email, password);
+        userData = res.data;
+      } else {
+        const res = await login(email, password);
+        userData = res.data;
+      }
+      onAuth(userData);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Une erreur est survenue');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal fade-up" onClick={(e) => e.stopPropagation()}>
@@ -30,11 +64,20 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
           </div>
           <div>
             <label className="field-label">{T.auth.password}</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="input" type="password" value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            />
           </div>
           {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
-          <button className="btn btn-primary btn-lg" onClick={() => onAuth(name)}>
-            {isSignup ? T.auth.signup : T.auth.signin}
+          {error && (
+            <div style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'color-mix(in oklab, var(--danger) 10%, var(--surface))', borderRadius: 6 }}>
+              {error}
+            </div>
+          )}
+          <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
+            {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           </button>
           <div className="center muted" style={{ fontSize: 13 }}>
             {isSignup ? T.auth.hasAccount : T.auth.noAccount}

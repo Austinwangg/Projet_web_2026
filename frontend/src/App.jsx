@@ -54,10 +54,19 @@ export default function App() {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
-  const onAuth = (name) => {
+  const onAuth = (userData) => {
+    // userData vient du backend : { id, nom, email, role }
+    // ou d'un appel legacy avec juste une string nom
+    const name = typeof userData === 'string' ? userData : userData.nom;
     const parts = name.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-    setUser({ name, initials: initials.toUpperCase() });
+    setUser({
+      id: userData.id ?? null,
+      name,
+      email: userData.email ?? '',
+      role: userData.role ?? 'user',
+      initials: initials.toUpperCase()
+    });
     setAuthMode(null);
     setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
   };

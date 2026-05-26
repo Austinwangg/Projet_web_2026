@@ -1,10 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { destinations, reservations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
+import { getNotifications, markRead, markAllRead } from '../services/notificationsService.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut }) {
   const [tab, setTab] = useState('bookings');
   const R = reservations;
+  const [notifs, setNotifs] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (tab === 'notifications' && user?.id) {
+      getNotifications(user.id)
+        .then(({ data }) => {
+          setNotifs(data.notifications || []);
+          setUnreadCount(data.unread || 0);
+        })
+        .catch(() => {});
+    }
+  }, [tab, user]);
+
+  const handleMarkRead = async (id) => {
+    try {
+      await markRead(id);
+      setNotifs(prev => prev.map(n => n.id === id ? { ...n, lu: 1 } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch { /* silent */ }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (!user?.id) return;
+    try {
+      await markAllRead(user.id);
+      setNotifs(prev => prev.map(n => ({ ...n, lu: 1 })));
+      setUnreadCount(0);
+    } catch { /* silent */ }
+  };
+
+  const iconForType = (type) => {
+    if (type === 'reservation') return '✓';
+    if (type === 'annulation') return '✕';
+    if (type === 'transport') return '✈';
+    if (type === 'activite') return '◇';
+    return '✦';
+  };
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>
@@ -118,21 +162,37 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut }) {
 
       {tab === 'notifications' && (
         <div className="col gap-12 fade-up" style={{ maxWidth: 720 }}>
-          {[
-            { i: '✓', t: lang === 'fr' ? 'Réservation Bali confirmée' : 'Bali booking confirmed', s: lang === 'fr' ? "Aujourd'hui · 10:32" : 'Today · 10:32', n: true },
-            { i: '✈', t: lang === 'fr' ? 'Départ dans 2 jours · vol AF 116' : 'Departure in 2 days · flight AF 116', s: lang === 'fr' ? 'Hier · 09:15' : 'Yesterday · 09:15', n: true },
-            { i: '◇', t: lang === 'fr' ? 'Atelier xiaolongbao : rappel J-1' : 'Xiaolongbao workshop: D-1 reminder', s: lang === 'fr' ? 'Il y a 3 jours' : '3 days ago', n: false },
-            { i: '✦', t: lang === 'fr' ? 'Offre Kyoto -15% pour vous' : 'Kyoto offer -15% just for you', s: lang === 'fr' ? 'Il y a 5 jours' : '5 days ago', n: false }
-          ].map((notif, i) => (
-            <div key={i} className="card-tile row gap-16" style={{ padding: 18, alignItems: 'center' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center' }}>{notif.i}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{notif.t}</div>
-                <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{notif.s.toUpperCase()}</div>
-              </div>
-              {notif.n && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }}></span>}
+          {unreadCount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
+                {lang === 'fr' ? 'Tout marquer comme lu' : 'Mark all as read'}
+              </button>
             </div>
-          ))}
+          )}
+          {notifs.length === 0 ? (
+            <div className="card-tile" style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)' }}>
+              {lang === 'fr' ? 'Aucune notification pour le moment.' : 'No notifications yet.'}
+            </div>
+          ) : (
+            notifs.map((n) => (
+              <div
+                key={n.id}
+                className="card-tile row gap-16"
+                style={{ padding: 18, alignItems: 'center', background: n.lu === 0 ? 'color-mix(in oklab, var(--primary) 5%, var(--surface))' : undefined, cursor: n.lu === 0 ? 'pointer' : 'default' }}
+                onClick={() => n.lu === 0 && handleMarkRead(n.id)}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  {iconForType(n.type)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: n.lu === 0 ? 600 : 500 }}>{n.titre}</div>
+                  {n.message && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{n.message}</div>}
+                  <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>{formatDate(n.created_at).toUpperCase()}</div>
+                </div>
+                {n.lu === 0 && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
+              </div>
+            ))
+          )}
         </div>
       )}
     </main>

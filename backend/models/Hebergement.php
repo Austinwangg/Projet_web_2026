@@ -45,4 +45,27 @@ class Hebergement {
         $stmt = getDB()->prepare('DELETE FROM hebergements WHERE id = ?');
         return $stmt->execute([$id]);
     }
+
+    public static function isAvailable(int $id): bool {
+        $stmt = getDB()->prepare('SELECT nb_chambres_dispo FROM hebergements WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row && (int) $row['nb_chambres_dispo'] > 0;
+    }
+
+    public static function decrementDispo(int $id): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE hebergements SET nb_chambres_dispo = nb_chambres_dispo - 1
+             WHERE id = ? AND nb_chambres_dispo > 0'
+        );
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public static function incrementDispo(int $id): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE hebergements SET nb_chambres_dispo = nb_chambres_dispo + 1 WHERE id = ?'
+        );
+        return $stmt->execute([$id]);
+    }
 }

@@ -1,4 +1,5 @@
 import Logo from './Logo.jsx';
+import Notifications from './Notifications.jsx';
 
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
@@ -40,6 +41,7 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('cart')} style={{ position: 'relative' }}>
             ⊕ {cartCount > 0 ? `(${cartCount})` : ''}
           </button>
+          <Notifications user={user} />
           {user ? (
             <button onClick={() => navigate('account')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
               <div className="avatar">{user.initials}</div>

@@ -43,4 +43,27 @@ class Activite {
         $stmt = getDB()->prepare('DELETE FROM activites WHERE id = ?');
         return $stmt->execute([$id]);
     }
+
+    public static function isAvailable(int $id): bool {
+        $stmt = getDB()->prepare('SELECT places_restantes FROM activites WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row && (int) $row['places_restantes'] > 0;
+    }
+
+    public static function decrementPlaces(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE activites SET places_restantes = places_restantes - ?
+             WHERE id = ? AND places_restantes >= ?'
+        );
+        $stmt->execute([$nb, $id, $nb]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public static function incrementPlaces(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE activites SET places_restantes = places_restantes + ? WHERE id = ?'
+        );
+        return $stmt->execute([$nb, $id]);
+    }
 }
