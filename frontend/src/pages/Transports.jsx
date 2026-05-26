@@ -1,10 +1,22 @@
+import { useState, useEffect } from 'react'
+import { getTransports } from '../services/transportsService'
 import '../styles/pages.css'
 
-/**
- * Page Transports – liste des options de transport.
- * [Placeholder] : le contenu sera chargé depuis l'API PHP /api/transports
- */
+const TYPE_ICONS = { avion: '✈️', train: '🚆', bus: '🚌', voiture: '🚗' }
+const TYPE_LABELS = { avion: 'Avion', train: 'Train', bus: 'Bus', voiture: 'Voiture' }
+
 function Transports() {
+  const [transports, setTransports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    getTransports()
+      .then(res => setTransports(res.data))
+      .catch(() => setError('Impossible de charger les transports.'))
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="page">
       <div className="page-header">
@@ -15,12 +27,23 @@ function Transports() {
         </p>
       </div>
 
-      <div className="placeholder-notice">
-        <p>🚧 Module en cours de développement</p>
-        <p className="placeholder-detail">
-          Cette section affichera les transports récupérés depuis l'API PHP
-          (<code>GET /api/transports</code>).
-        </p>
+      {loading && <p className="data-loading">Chargement...</p>}
+      {error && <p className="data-error">{error}</p>}
+
+      <div className="data-list">
+        {transports.map(t => (
+          <div key={t.id} className="transport-card">
+            <span className="transport-icon">{TYPE_ICONS[t.type] || '🚀'}</span>
+            <div className="transport-info">
+              <div className="transport-top">
+                <h3>{t.compagnie || TYPE_LABELS[t.type]}</h3>
+                <span className="card-badge">{TYPE_LABELS[t.type] || t.type}</span>
+              </div>
+              <p className="transport-route">{t.depart} → {t.arrivee}</p>
+            </div>
+            <p className="card-price-right">{t.prix} €</p>
+          </div>
+        ))}
       </div>
     </div>
   )

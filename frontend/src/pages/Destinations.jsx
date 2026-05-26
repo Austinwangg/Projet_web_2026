@@ -1,10 +1,19 @@
+import { useState, useEffect } from 'react'
+import { getDestinations } from '../services/destinationsService'
 import '../styles/pages.css'
 
-/**
- * Page Destinations – liste des destinations disponibles.
- * [Placeholder] : le contenu sera chargé depuis l'API PHP /api/destinations
- */
 function Destinations() {
+  const [destinations, setDestinations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    getDestinations()
+      .then(res => setDestinations(res.data))
+      .catch(() => setError('Impossible de charger les destinations.'))
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="page">
       <div className="page-header">
@@ -15,12 +24,22 @@ function Destinations() {
         </p>
       </div>
 
-      <div className="placeholder-notice">
-        <p>🚧 Module en cours de développement</p>
-        <p className="placeholder-detail">
-          Cette section affichera les destinations récupérées depuis l'API PHP
-          (<code>GET /api/destinations</code>).
-        </p>
+      {loading && <p className="data-loading">Chargement...</p>}
+      {error && <p className="data-error">{error}</p>}
+
+      <div className="data-grid">
+        {destinations.map(dest => (
+          <div key={dest.id} className="data-card">
+            {dest.image_url && (
+              <img src={dest.image_url} alt={dest.nom} className="card-img" />
+            )}
+            <div className="card-body">
+              <span className="card-badge">{dest.pays}</span>
+              <h3 className="card-title">{dest.nom}</h3>
+              <p className="card-desc">{dest.description}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
