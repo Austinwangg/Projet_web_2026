@@ -54,10 +54,17 @@ export default function App() {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
-  const onAuth = (name) => {
-    const parts = name.trim().split(' ');
+  const onAuth = (userData) => {
+    const nom = typeof userData === 'string' ? userData : userData.nom;
+    const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-    setUser({ name, initials: initials.toUpperCase() });
+    setUser({
+      id: userData.id ?? null,
+      name: nom,
+      email: userData.email ?? null,
+      role: userData.role ?? 'user',
+      initials: initials.toUpperCase(),
+    });
     setAuthMode(null);
     setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
   };
@@ -84,7 +91,7 @@ export default function App() {
         <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} />
       )}
       {screen === 'itinerary' && (
-        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} />
+        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
       )}
       {screen === 'cart' && (
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />

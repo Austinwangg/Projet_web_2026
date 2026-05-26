@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost',
+        target: 'http://localhost:81',
         changeOrigin: true,
         // Adapter ce chemin au nom du dossier dans htdocs (= nom du repo GitHub)
         rewrite: (path) => path.replace(/^\/api/, '/Projet_web_2026/backend/api'),
