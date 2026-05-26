@@ -42,7 +42,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut }) {
             const dotClass = r.status === 'confirmed' ? 'green' : r.status === 'pending' ? 'amber' : '';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
-                <Placeholder label={(lang === 'fr' ? r.dest : r.destEn).toUpperCase()} ratio="16/10" cat="ville" />
+                <Placeholder label={(lang === 'fr' ? r.dest : r.destEn).toUpperCase()} ratio="16/10" cat="ville" imageUrl={destinations.find(d => (lang === 'fr' ? r.dest : r.destEn).toLowerCase().includes(d.city.toLowerCase()))?.imageUrl} />
                 <div>
                   <div className="row gap-8 mb-4">
                     <span className="tag"><span className={`dot ${dotClass}`}></span>{statusLabel}</span>
@@ -70,7 +70,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut }) {
         <div className="grid grid-4 fade-up">
           {destinations.slice(0, 4).map(d => (
             <button key={d.id} className="dest" onClick={() => navigate('detail', { id: d.id })}>
-              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" />
+              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
               <div className="dest-meta">
                 <div>
                   <div className="dest-name">{d.city}</div>

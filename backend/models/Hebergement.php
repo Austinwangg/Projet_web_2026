@@ -8,6 +8,12 @@ class Hebergement {
         return $stmt->fetchAll();
     }
 
+    public static function getByDest(int $destId): array {
+        $stmt = getDB()->prepare('SELECT * FROM hebergements WHERE destination_id = ? ORDER BY nb_etoiles DESC');
+        $stmt->execute([$destId]);
+        return $stmt->fetchAll();
+    }
+
     public static function getById(int $id): array|false {
         $stmt = getDB()->prepare('SELECT * FROM hebergements WHERE id = ?');
         $stmt->execute([$id]);
@@ -16,16 +22,21 @@ class Hebergement {
 
     public static function create(array $data): int {
         $stmt = getDB()->prepare(
-            'INSERT INTO hebergements (destination_id, nom, type, prix_nuit, nb_etoiles, image_url)
-             VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO hebergements
+               (destination_id, nom, quartier, type, prix_nuit, nb_etoiles, note, avantage_fr, avantage_en, image_url)
+             VALUES (?,?,?,?,?,?,?,?,?,?)'
         );
         $stmt->execute([
             $data['destination_id'],
             $data['nom'],
-            $data['type'],
+            $data['quartier']    ?? '',
+            $data['type']        ?? 'hotel',
             $data['prix_nuit'],
-            $data['nb_etoiles'] ?? 3,
-            $data['image_url'] ?? '',
+            $data['nb_etoiles']  ?? 4,
+            $data['note']        ?? 4.5,
+            $data['avantage_fr'] ?? '',
+            $data['avantage_en'] ?? '',
+            $data['image_url']   ?? '',
         ]);
         return (int) getDB()->lastInsertId();
     }

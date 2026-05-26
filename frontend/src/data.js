@@ -1,4 +1,8 @@
 // VoyageVista — mock data (ES module)
+// Images : Unsplash (licence libre)
+
+const UNS = (id, w = 1200) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
 
 export const destinations = [
   {
@@ -8,95 +12,118 @@ export const destinations = [
     tag: 'Tendance', tagEn: 'Trending',
     blurb: "Néons du Bund, ruelles du Vieux Shanghai, gratte-ciel du Pudong : la ville qui ne s'arrête jamais.",
     blurbEn: "Bund neon, Old Shanghai lanes, Pudong skyline — the city that never pauses.",
-    ph: 'SHANGHAI · PUDONG'
+    ph: 'SHANGHAI · PUDONG',
+    imageUrl: UNS('1474181487882-5abf3f0ba6c2')
   },
   {
     id: 'bali', city: 'Bali', country: 'Indonésie', countryEn: 'Indonesia',
     type: 'aventure', types: ['aventure', 'plage'],
-    rating: 4.7, reviews: 894, durationDays: 8, priceFrom: 1199, tag: 'Populaire', tagEn: 'Popular',
+    rating: 4.7, reviews: 894, durationDays: 8, priceFrom: 1199,
+    tag: 'Populaire', tagEn: 'Popular',
     blurb: "Rizières d'Ubud, plages de Canggu, temples de Tirta Empul.",
     blurbEn: "Ubud rice terraces, Canggu beaches, Tirta Empul temples.",
-    ph: 'BALI · UBUD'
+    ph: 'BALI · UBUD',
+    imageUrl: UNS('1537996194471-e657df975ab4')
   },
   {
     id: 'santorini', city: 'Santorin', country: 'Grèce', countryEn: 'Greece',
     type: 'plage', types: ['plage', 'ville'],
-    rating: 4.6, reviews: 1240, durationDays: 6, priceFrom: 1340, tag: '', tagEn: '',
+    rating: 4.6, reviews: 1240, durationDays: 6, priceFrom: 1340,
+    tag: '', tagEn: '',
     blurb: "Caldeira au crépuscule, dômes bleus d'Oia, vignobles d'assyrtiko.",
     blurbEn: "Caldera at dusk, blue domes of Oia, Assyrtiko vineyards.",
-    ph: 'SANTORINI · OIA'
+    ph: 'SANTORINI · OIA',
+    imageUrl: UNS('1570077188670-e3a8d69ac5ff')
   },
   {
     id: 'marrakech', city: 'Marrakech', country: 'Maroc', countryEn: 'Morocco',
     type: 'culture', types: ['culture', 'ville'],
-    rating: 4.5, reviews: 720, durationDays: 5, priceFrom: 749, tag: 'Nouveau', tagEn: 'New',
+    rating: 4.5, reviews: 720, durationDays: 5, priceFrom: 749,
+    tag: 'Nouveau', tagEn: 'New',
     blurb: "Souks de la médina, riads cachés, mosaïques du palais Bahia.",
     blurbEn: "Medina souks, hidden riads, Bahia palace mosaics.",
-    ph: 'MARRAKECH · MEDINA'
+    ph: 'MARRAKECH · MEDINA',
+    imageUrl: UNS('1539037116277-4db20889f2d4')
   },
   {
     id: 'kyoto', city: 'Kyoto', country: 'Japon', countryEn: 'Japan',
     type: 'culture', types: ['culture', 'montagne'],
-    rating: 4.9, reviews: 1080, durationDays: 9, priceFrom: 1620, tag: 'Saison', tagEn: 'In season',
+    rating: 4.9, reviews: 1080, durationDays: 9, priceFrom: 1620,
+    tag: 'Saison', tagEn: 'In season',
     blurb: "Mille torii de Fushimi Inari, jardins zen, ryokans de Gion.",
     blurbEn: "Fushimi Inari's thousand torii, Zen gardens, Gion ryokans.",
-    ph: 'KYOTO · FUSHIMI'
+    ph: 'KYOTO · FUSHIMI',
+    imageUrl: UNS('1493976040374-85c8e12f0c0e')
   },
   {
     id: 'lisbon', city: 'Lisbonne', country: 'Portugal', countryEn: 'Portugal',
     type: 'ville', types: ['ville', 'plage'],
-    rating: 4.6, reviews: 540, durationDays: 5, priceFrom: 620, tag: '', tagEn: '',
+    rating: 4.6, reviews: 540, durationDays: 5, priceFrom: 620,
+    tag: '', tagEn: '',
     blurb: "Tramway 28, azulejos, pasteis de nata et fado dans l'Alfama.",
     blurbEn: "Tram 28, azulejos, pastéis de nata, Alfama fado.",
-    ph: 'LISBOA · ALFAMA'
+    ph: 'LISBOA · ALFAMA',
+    imageUrl: UNS('1548707309-dcebeab9ea9b')
   },
   {
     id: 'tulum', city: 'Tulum', country: 'Mexique', countryEn: 'Mexico',
     type: 'plage', types: ['plage', 'aventure'],
-    rating: 4.4, reviews: 432, durationDays: 7, priceFrom: 980, tag: '', tagEn: '',
+    rating: 4.4, reviews: 432, durationDays: 7, priceFrom: 980,
+    tag: '', tagEn: '',
     blurb: "Cenotes, ruines mayas en bord de mer, jungle yucatèque.",
     blurbEn: "Cenotes, Mayan ruins by the sea, Yucatán jungle.",
-    ph: 'TULUM · CENOTE'
+    ph: 'TULUM · CENOTE',
+    imageUrl: UNS('1518638150340-f706e86654de')
   },
   {
     id: 'patagonia', city: 'Patagonie', country: 'Argentine', countryEn: 'Argentina',
     type: 'montagne', types: ['montagne', 'aventure'],
-    rating: 4.9, reviews: 312, durationDays: 12, priceFrom: 2240, tag: '', tagEn: '',
+    rating: 4.9, reviews: 312, durationDays: 12, priceFrom: 2240,
+    tag: '', tagEn: '',
     blurb: "Glacier Perito Moreno, trek du Fitz Roy, estancias.",
     blurbEn: "Perito Moreno glacier, Fitz Roy trek, working estancias.",
-    ph: 'PATAGONIA · FITZROY'
+    ph: 'PATAGONIA · FITZROY',
+    imageUrl: UNS('1501854140801-50d01698950b')
   },
   {
     id: 'reykjavik', city: 'Reykjavik', country: 'Islande', countryEn: 'Iceland',
     type: 'aventure', types: ['aventure', 'montagne'],
-    rating: 4.7, reviews: 401, durationDays: 6, priceFrom: 1480, tag: '', tagEn: '',
+    rating: 4.7, reviews: 401, durationDays: 6, priceFrom: 1480,
+    tag: '', tagEn: '',
     blurb: "Aurores boréales, cercle d'or, sources géothermales.",
     blurbEn: "Northern lights, Golden Circle, geothermal springs.",
-    ph: 'REYKJAVIK · AURORA'
+    ph: 'REYKJAVIK · AURORA',
+    imageUrl: UNS('1531168586672-d36a24562b38')
   },
   {
     id: 'capetown', city: 'Cape Town', country: 'Afrique du Sud', countryEn: 'South Africa',
     type: 'aventure', types: ['aventure', 'plage'],
-    rating: 4.6, reviews: 520, durationDays: 10, priceFrom: 1920, tag: '', tagEn: '',
+    rating: 4.6, reviews: 520, durationDays: 10, priceFrom: 1920,
+    tag: '', tagEn: '',
     blurb: "Table Mountain, Cap de Bonne-Espérance, vignobles de Stellenbosch.",
     blurbEn: "Table Mountain, Cape of Good Hope, Stellenbosch wineries.",
-    ph: 'CAPE TOWN · TABLE MT'
+    ph: 'CAPE TOWN · TABLE MT',
+    imageUrl: UNS('1580060839134-75a5edca2e99')
   },
   {
     id: 'hanoi', city: 'Hanoï', country: 'Vietnam', countryEn: 'Vietnam',
     type: 'culture', types: ['culture', 'ville'],
-    rating: 4.5, reviews: 380, durationDays: 9, priceFrom: 1140, tag: '', tagEn: '',
+    rating: 4.5, reviews: 380, durationDays: 9, priceFrom: 1140,
+    tag: '', tagEn: '',
     blurb: "Vieux quartier, baie d'Halong, pho fumant à l'aube.",
     blurbEn: "Old Quarter, Halong Bay, steaming pho at dawn.",
-    ph: 'HANOI · OLD QUARTER'
+    ph: 'HANOI · OLD QUARTER',
+    imageUrl: UNS('1583417319070-4a69db38a482')
   },
   {
     id: 'lofoten', city: 'Lofoten', country: 'Norvège', countryEn: 'Norway',
     type: 'montagne', types: ['montagne', 'aventure'],
-    rating: 4.8, reviews: 210, durationDays: 7, priceFrom: 1860, tag: '', tagEn: '',
+    rating: 4.8, reviews: 210, durationDays: 7, priceFrom: 1860,
+    tag: '', tagEn: '',
     blurb: "Cabanes de pêcheurs rouges, randonnées de Reinebringen.",
     blurbEn: "Red fishermen's cabins, Reinebringen hikes.",
-    ph: 'LOFOTEN · REINE'
+    ph: 'LOFOTEN · REINE',
+    imageUrl: UNS('1520769669658-f07657f5a307')
   }
 ];
 
@@ -105,6 +132,15 @@ export const shanghaiDetail = {
   title: { fr: "Shanghai · 7 jours d'horizon", en: "Shanghai · 7 days of skyline" },
   subtitle: { fr: "Du Bund au Pudong, des concessions aux jardins.", en: "From the Bund to Pudong, from concessions to gardens." },
   gallery: ['BUND · NIGHT', 'PUDONG · SKYLINE', 'YU GARDEN', 'XINTIANDI · LANE', 'M50 · ART', 'SHIKUMEN'],
+  // Unsplash gallery images — each slot maps to gallery[] by index
+  galleryImages: [
+    UNS('1474181487882-5abf3f0ba6c2'),   // Bund at night
+    UNS('1547981386-fb5e6e0a1fc4'),       // Pudong skyline
+    UNS('1548919073-bf9e27c15c78'),       // Yu Garden
+    UNS('1622397249834-18bb4bbd5c5c', 900), // Xintiandi lane
+    UNS('1565461260409-a2e3e8d64ac0', 900), // M50 art
+    UNS('1568797629192-789acf8e4df3', 900)  // Shikumen
+  ],
   description: {
     fr: "Une semaine pour saisir Shanghai dans toute son amplitude. Côté Puxi, on flâne le long du Bund, on se perd dans les concessions française et anglaise, on goûte le xiaolongbao chez Jia Jia Tang Bao. De l'autre rive, Pudong et ses tours dressent l'horizon le plus photographié d'Asie. Vous logez à mi-chemin, dans une lilong rénovée — calme, mais à dix minutes de tout.",
     en: "A week to take in Shanghai at full breadth. On the Puxi side, stroll the Bund, get lost in the French and English concessions, taste xiaolongbao at Jia Jia Tang Bao. Across the river, Pudong and its towers form Asia's most photographed skyline. You stay halfway, in a renovated lilong — quiet, but ten minutes from everything."
@@ -115,10 +151,10 @@ export const shanghaiDetail = {
     { id: 'f3', from: 'Paris ORY', to: 'Shanghai PVG', airline: 'Lufthansa (Munich)', duration: '14h40', price: 489, time: '08:25 → 01:30+1' }
   ],
   hotels: [
-    { id: 'h1', name: 'The Middle House', area: "Jing'an · Puxi", rating: 4.9, pricePerNight: 285, perk: { fr: 'Petit-déj inclus', en: 'Breakfast included' } },
-    { id: 'h2', name: 'URBN Boutique', area: 'Ex-concession française', rating: 4.6, pricePerNight: 165, perk: { fr: 'Hôtel carbone-neutre', en: 'Carbon-neutral hotel' } },
-    { id: 'h3', name: 'Capella Jian Ye Li', area: 'Xuhui · Shikumen', rating: 4.95, pricePerNight: 420, perk: { fr: 'Spa privatif', en: 'Private spa' } },
-    { id: 'h4', name: 'Yangtze Boutique', area: "People's Square", rating: 4.3, pricePerNight: 112, perk: { fr: 'Annulation flexible', en: 'Flexible cancellation' } }
+    { id: 'h1', name: 'The Middle House', area: "Jing'an · Puxi", rating: 4.9, pricePerNight: 285, perk: { fr: 'Petit-déj inclus', en: 'Breakfast included' }, imageUrl: UNS('1566073771259-6a8506099945', 600) },
+    { id: 'h2', name: 'URBN Boutique', area: 'Ex-concession française', rating: 4.6, pricePerNight: 165, perk: { fr: 'Hôtel carbone-neutre', en: 'Carbon-neutral hotel' }, imageUrl: UNS('1542314831-068cd1dbfeeb', 600) },
+    { id: 'h3', name: 'Capella Jian Ye Li', area: 'Xuhui · Shikumen', rating: 4.95, pricePerNight: 420, perk: { fr: 'Spa privatif', en: 'Private spa' }, imageUrl: UNS('1520250497591-112f2f40a3f4', 600) },
+    { id: 'h4', name: 'Yangtze Boutique', area: "People's Square", rating: 4.3, pricePerNight: 112, perk: { fr: 'Annulation flexible', en: 'Flexible cancellation' }, imageUrl: UNS('1555854877-bab0e564b8d5', 600) }
   ],
   activities: [
     { id: 'a1', name: { fr: 'Croisière nocturne sur le Huangpu', en: 'Huangpu river night cruise' }, duration: '1h30', price: 28 },

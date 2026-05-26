@@ -5,13 +5,18 @@ class ReservationController {
 
     public static function handle(): void {
         $method = $_SERVER['REQUEST_METHOD'];
-        $id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
+        $id     = isset($_GET['id'])      ? (int) $_GET['id']      : null;
+        $userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
+
+        header('Content-Type: application/json; charset=utf-8');
 
         switch ($method) {
             case 'GET':
                 if ($id) {
                     $item = Reservation::getById($id);
                     echo json_encode($item ?: ['error' => 'Non trouvé'], JSON_UNESCAPED_UNICODE);
+                } elseif ($userId) {
+                    echo json_encode(Reservation::getByUser($userId), JSON_UNESCAPED_UNICODE);
                 } else {
                     echo json_encode(Reservation::getAll(), JSON_UNESCAPED_UNICODE);
                 }
@@ -21,18 +26,20 @@ class ReservationController {
                 $data  = json_decode(file_get_contents('php://input'), true);
                 $newId = Reservation::create($data);
                 http_response_code(201);
-                echo json_encode(['id' => $newId, 'message' => 'Réservation créée']);
+                echo json_encode(['id' => $newId, 'message' => 'Réservation créée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             case 'PUT':
+                if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 $data = json_decode(file_get_contents('php://input'), true);
                 Reservation::update($id, $data);
-                echo json_encode(['message' => 'Réservation mise à jour']);
+                echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
                 break;
 
             case 'DELETE':
+                if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 Reservation::delete($id);
-                echo json_encode(['message' => 'Réservation supprimée']);
+                echo json_encode(['message' => 'Réservation supprimée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             default:

@@ -8,6 +8,7 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
   const D = destinations;
   const [activeCat, setActiveCat] = useState('all');
   const filtered = activeCat === 'all' ? D.slice(0, 8) : D.filter(d => d.types.includes(activeCat)).slice(0, 8);
+  const shanghaiDest = D.find(d => d.id === 'shanghai');
 
   return (
     <main>
@@ -59,7 +60,7 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
         <div className={`grid grid-4 ${cardStyle === 'illustrated' ? 'card-illustrated' : ''}`}>
           {filtered.map((d, i) => (
             <button key={d.id} className="dest fade-up" style={{ animationDelay: `${i * 40}ms` }} onClick={() => navigate('detail', { id: d.id })}>
-              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" />
+              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
               <div className="dest-meta">
                 <div>
                   <div className="dest-name">{d.city}</div>
@@ -104,7 +105,7 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
       {/* FEATURED: SHANGHAI */}
       <section className="section container">
         <div className="card" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: 480, padding: 0, overflow: 'hidden' }}>
-          <Placeholder label="SHANGHAI · BUND" ratio="auto" cat="ville" style={{ minHeight: 480, height: '100%', borderRadius: 0 }} />
+          <Placeholder label="SHANGHAI · BUND" ratio="auto" cat="ville" style={{ minHeight: 480, height: '100%', borderRadius: 0 }} imageUrl={shanghaiDest?.imageUrl} />
           <div style={{ padding: 56, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32 }}>
             <div>
               <span className="eyebrow">{T.home.featuredEyebrow}</span>

@@ -110,7 +110,7 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
             <div className={`grid grid-3 ${cardStyle === 'illustrated' ? 'card-illustrated' : ''}`}>
               {filtered.map((d, i) => (
                 <button key={d.id} className="dest fade-up" style={{ animationDelay: `${i * 30}ms` }} onClick={() => navigate('detail', { id: d.id })}>
-                  <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" />
+                  <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
                   <div className="dest-meta">
                     <div>
                       <div className="dest-name">{d.city}</div>
@@ -132,7 +132,7 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
             <div className={`col gap-16 ${cardStyle === 'illustrated' ? 'card-illustrated' : ''}`}>
               {filtered.map((d, i) => (
                 <button key={d.id} className="card fade-up" style={{ display: 'grid', gridTemplateColumns: '280px 1fr auto', gap: 24, padding: 16, alignItems: 'center', border: '1px solid var(--line-soft)', background: 'var(--surface)', textAlign: 'left', animationDelay: `${i * 30}ms` }} onClick={() => navigate('detail', { id: d.id })}>
-                  <Placeholder label={d.ph} ratio="16/10" cat={d.type} />
+                  <Placeholder label={d.ph} ratio="16/10" cat={d.type} imageUrl={d.imageUrl} />
                   <div>
                     <div className="row gap-8" style={{ marginBottom: 6 }}>
                       <span className="dest-country">{lang === 'fr' ? d.country : d.countryEn}</span>

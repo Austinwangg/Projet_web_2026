@@ -68,12 +68,12 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
 
       {/* Gallery */}
       <div className="gallery mb-32">
-        <Placeholder label={detail.gallery[0]} ratio="auto" cat={dest.type} />
-        <Placeholder label={detail.gallery[1]} ratio="auto" cat={dest.type} />
-        <Placeholder label={detail.gallery[2]} ratio="auto" cat={dest.type} />
-        <Placeholder label={detail.gallery[3]} ratio="auto" cat={dest.type} />
+        <Placeholder label={detail.gallery[0]} ratio="auto" cat={dest.type} imageUrl={dest.imageUrl || (detail.galleryImages && detail.galleryImages[0])} />
+        <Placeholder label={detail.gallery[1]} ratio="auto" cat={dest.type} imageUrl={detail.galleryImages && detail.galleryImages[1]} />
+        <Placeholder label={detail.gallery[2]} ratio="auto" cat={dest.type} imageUrl={detail.galleryImages && detail.galleryImages[2]} />
+        <Placeholder label={detail.gallery[3]} ratio="auto" cat={dest.type} imageUrl={detail.galleryImages && detail.galleryImages[3]} />
         <div style={{ position: 'relative' }}>
-          <Placeholder label={detail.gallery[4]} ratio="auto" cat={dest.type} />
+          <Placeholder label={detail.gallery[4]} ratio="auto" cat={dest.type} imageUrl={detail.galleryImages && detail.galleryImages[4]} />
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center', color: 'white', fontSize: 13, fontWeight: 600 }}>
             {T.detail.photos}
           </div>
@@ -162,7 +162,7 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
             <div className="grid grid-2 fade-up">
               {detail.hotels.map(h => (
                 <button key={h.id} onClick={() => setSelectedHotel(h.id)} className="card-tile" style={{ border: selectedHotel === h.id ? '1.5px solid var(--ink)' : '1px solid var(--line-soft)', textAlign: 'left', padding: 0, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
-                  <Placeholder label={h.name.toUpperCase()} ratio="16/10" cat={dest.type} style={{ borderRadius: 0 }} />
+                  <Placeholder label={h.name.toUpperCase()} ratio="16/10" cat={dest.type} style={{ borderRadius: 0 }} imageUrl={h.imageUrl} />
                   <div style={{ padding: 20 }}>
                     <div className="between">
                       <div className="serif" style={{ fontSize: 22 }}>{h.name}</div>
