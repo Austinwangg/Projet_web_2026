@@ -1,4 +1,8 @@
 <?php
+// Affichage des erreurs PHP – à retirer avant la présentation
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 /**
  * Middleware CORS – autorise les requêtes depuis le frontend React (Vite dev server).
  * À inclure en tête de chaque fichier d'entrée d'API.

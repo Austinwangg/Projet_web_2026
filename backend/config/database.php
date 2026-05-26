@@ -6,10 +6,12 @@
  * ⚠ En production : stocker les credentials dans des variables d'environnement.
  */
 
-define('DB_HOST',    'localhost');
+// MAMP : host = 127.0.0.1 (évite le conflit de socket Unix avec 'localhost')
+// MAMP : mot de passe par défaut = 'root'
+define('DB_HOST',    '127.0.0.1');
 define('DB_NAME',    'voyagevista');
 define('DB_USER',    'root');
-define('DB_PASS',    '');          // Changer selon votre config XAMPP
+define('DB_PASS',    'root');
 define('DB_CHARSET', 'utf8mb4');
 
 function getDB(): PDO {
