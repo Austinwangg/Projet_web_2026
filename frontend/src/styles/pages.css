@@ -1,0 +1,79 @@
+/* ─── Styles communs à toutes les pages ───────────────────────────────────── */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Hero (page d'accueil) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #0d4f8e 100%);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 5rem 3rem;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+.hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin-bottom: 1rem; }
+.hero-subtitle { font-size: 1.15rem; opacity: 0.9; max-width: 600px; margin: 0 auto 2rem; }
+
+/* ── Grille des sections (accueil) ── */
+.section-title {
+  font-size: 1.75rem;
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+}
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+.section-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+.section-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+.card-icon { font-size: 2.25rem; }
+.section-card h3 { font-size: 1.1rem; color: var(--color-primary); }
+.section-card p  { font-size: 0.9rem; color: var(--color-text-muted); flex: 1; }
+.card-arrow { color: var(--color-secondary); font-size: 1.2rem; align-self: flex-end; }
+
+/* ── En-têtes de page ── */
+.page-header {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 2.5rem;
+}
+.page-icon    { font-size: 3rem; display: block; margin-bottom: 0.5rem; }
+.page-header h1 { font-size: 2.25rem; color: var(--color-primary); }
+.page-subtitle  { font-size: 1.05rem; color: var(--color-text-muted); margin-top: 0.5rem; }
+
+/* ── Panneau placeholder ── */
+.placeholder-notice {
+  background: #fff7ed;
+  border: 1px dashed var(--color-secondary);
+  border-radius: var(--radius);
+  padding: 2rem;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+.placeholder-notice p:first-child { font-weight: 600; font-size: 1.1rem; margin-bottom: 0.5rem; }
+.placeholder-detail { font-size: 0.9rem; }
+.placeholder-detail code {
+  background: #fef3c7;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+}

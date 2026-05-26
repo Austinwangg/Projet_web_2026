@@ -1,0 +1,11 @@
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Backend secrets
+backend/config/env.php
+
+# OS
+.DS_Store
+Thumbs.db
