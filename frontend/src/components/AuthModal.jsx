@@ -8,14 +8,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
   const [name, setName]         = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
-import api from '../services/api.js';
-
-export default function AuthModal({ mode, T, onClose, onAuth }) {
-  const [email, setEmail] = useState('jean@exemple.com');
-  const [password, setPassword] = useState('password');
-  const [name, setName] = useState('Jean Dupont');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   if (!mode) return null;
   const isSignup = mode === 'signup';
@@ -34,15 +26,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
       onAuth(res.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Une erreur est survenue.');
-    setLoading(true);
-    try {
-      const payload = isSignup
-        ? { action: 'register', nom: name, email, password }
-        : { action: 'login', email, password };
-      const res = await api.post('/auth', payload);
-      onAuth(res.data);
-    } catch (e) {
-      setError(e.response?.data?.error || (isSignup ? 'Erreur inscription' : 'Email ou mot de passe incorrect'));
     } finally {
       setLoading(false);
     }
@@ -65,59 +48,24 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
           {isSignup && (
             <div>
               <label className="field-label">{T.auth.name}</label>
-              <input
-                className="input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Jean Dupont"
-              />
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} />
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Jean Dupont" />
             </div>
           )}
           <div>
             <label className="field-label">{T.auth.email}</label>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="jean@exemple.com"
-            />
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKey} placeholder="jean@exemple.com" />
           </div>
           <div>
             <label className="field-label">{T.auth.password}</label>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            />
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKey} placeholder="••••••••" />
           </div>
 
           {error && (
-            <div style={{ color: 'var(--danger)', fontSize: 13, padding: '8px 12px', background: 'color-mix(in oklab, var(--danger) 10%, transparent)', borderRadius: 8 }}>
-              {error}
-            </div>
+            <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>
           )}
 
           {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
 
-          <button
-            className="btn btn-primary btn-lg"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? '…' : isSignup ? T.auth.signup : T.auth.signin}
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKey} />
-          </div>
-          <div>
-            <label className="field-label">{T.auth.password}</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKey} />
-          </div>
-          {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
-          {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
           <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
             {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           </button>
