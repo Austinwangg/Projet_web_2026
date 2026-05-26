@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoyageVista - Planifiez. Explorez. Vivez.</title>
+    <style>
+        /* =========================================
+           VARIABLES ET RESET (Optimisation globale)
+           ========================================= */
+        :root {
+            --primary-color: #0066cc;
+            --secondary-color: #00b386;
+            --bg-light: #f4f7f6;
+            --text-dark: #333333;
+            --text-muted: #777777;
+            --white: #ffffff;
+            --border-radius: 12px;
+            --shadow: 0 4px 15px rgba(0,0,0,0.05);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+        img { max-width: 100%; height: auto; border-radius: var(--border-radius); }
+
+        /* =========================================
+           HEADER ET NAVIGATION
+           ========================================= */
+        header {
+            background-color: var(--white);
+            padding: 15px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+        }
+
+        nav.main-nav ul {
+            display: flex;
+            gap: 25px;
+            font-weight: 500;
+        }
+
+        nav.main-nav ul li a:hover {
+            color: var(--primary-color);
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background-color: #0052a3;
+        }
+
+        .btn-outline {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+        }
+
+        /* =========================================
+           HERO SECTION ET RECHERCHE
+           ========================================= */
+        .hero {
+            padding: 60px 5%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white);
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .search-container {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            display: flex;
+            gap: 15px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: var(--shadow);
+        }
+
+        .search-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+
+        .search-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .search-group input, .search-group select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        /* =========================================
+           SECTIONS COMMUNES (GRILLES DE CARTES)
+           ========================================= */
+        .section-container {
+            padding: 50px 5%;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            color: var(--primary-color);
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .card-img-container {
+            height: 200px;
+            background-color: #ddd; /* Placeholder color */
+            position: relative;
+        }
+
+        .card-price-badge {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--white);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .card-rating {
+            color: #f39c12;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        /* =========================================
+           LISTE DE TRANSPORTS
+           ========================================= */
+        .transport-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .transport-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        .transport-details {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .transport-time strong {
+            display: block;
+            font-size: 1.2rem;
+        }
+
+        .transport-line {
+            width: 100px;
+            height: 2px;
+            background: #ddd;
+            position: relative;
+        }
+
+        .transport-line::after {
+            content: 'Direct';
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* =========================================
+           FOOTER
+           ========================================= */
+        footer {
+            background-color: #1a2b3c;
+            color: var(--white);
+            padding: 50px 5% 20px;
+            margin-top: 50px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .footer-col h4 {
+            margin-bottom: 20px;
+            color: var(--secondary-color);
+        }
+
+        .footer-col ul li {
+            margin-bottom: 10px;
+            color: #cccccc;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <span>✈️ VoyageVista</span>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="#destinations">Destinations</a></li>
+                <li><a href="#transports">Vols & Transports</a></li>
+                <li><a href="#hebergements">Hébergements</a></li>
+                <li><a href="#activites">Activités</a></li>
+            </ul>
+        </nav>
+        <div class="user-actions">
+            <button class="btn btn-outline">Se connecter</button>
+            <button class="btn btn-primary">Panier (0)</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Planifiez. Explorez. Vivez.</h1>
+            <p>Trouvez les meilleures offres pour vos prochains séjours</p>
+            <br>
+            <div class="search-container">
+                <div class="search-group">
+                    <label>Destination</label>
+                    <input type="text" placeholder="Où voulez-vous aller ?">
+                </div>
+                <div class="search-group">
+                    <label>Dates</label>
+                    <input type="date">
+                </div>
+                <div class="search-group">
+                    <label>Voyageurs</label>
+                    <select>
+                        <option>1 Adulte</option>
+                        <option selected>2 Adultes</option>
+                        <option>Famille</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" style="align-self: flex-end;">Rechercher</button>
+            </div>
+        </section>
+
+        <section id="destinations" class="section-container">
+            <div class="section-header">
+                <h2>Destinations Populaires</h2>
+                <a href="#" style="color: var(--primary-color); font-weight: bold;">Voir tout ></a>
+            </div>
+            <div class="grid-layout">
+                <div class="card">
+                    <div class="card-img-container" style="background: url('https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=600&q=80') center/cover;">
+                        <span class="card-price-badge">Dès 789 €</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Bali, Indonésie</div>
+                        <div class="card-rating">★★★★★ (124 avis)</div>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Plages paradisiaques et temples majestueux.</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 15px;">Découvrir</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-img-container" style="background: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80') center/cover;">
+                        <span class="card-price-badge">Dès 1200 €</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Santorin, Grèce</div>
+                        <div class="card-rating">★★★★☆ (98 avis)</div>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Vues imprenables et architecture emblématique.</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 15px;">Découvrir</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-img-container" style="background: url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=600&q=80') center/cover;">
+                        <span class="card-price-badge">Dès 450 €</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Rome, Italie</div>
+                        <div class="card-rating">★★★★★ (210 avis)</div>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Immersion totale dans l'histoire antique.</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 15px;">Découvrir</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-img-container" style="background: url('https://images.unsplash.com/photo-1522083111451-874b3d88ce83?auto=format&fit=crop&w=600&q=80') center/cover;">
+                        <span class="card-price-badge">Dès 890 €</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-title">Kyoto, Japon</div>
+                        <div class="card-rating">★★★★★ (156 avis)</div>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Culture traditionnelle et jardins zen.</p>
+                        <button class="btn btn-outline" style="width: 100%; margin-top: 15px;">Découvrir</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="transports" class="section-container" style="background: var(--white);">
+            <div class="section-header">
+                <h2>Transports Disponibles</h2>
+            </div>
+            <div class="transport-list">
+                <div class="transport-item">
+                    <div class="transport-details">
+                        <div style="font-weight: bold; color: var(--primary-color);">✈️ Air France</div>
+                        <div class="transport-time">
+                            <strong>11:30</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">CDG</span>
+                        </div>
+                        <div class="transport-line"></div>
+                        <div class="transport-time">
+                            <strong>05:15</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">DPS (+1)</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.5rem; font-weight: bold;">789 €</div>
+                        <button class="btn btn-primary" style="margin-top: 5px;">Sélectionner</button>
+                    </div>
+                </div>
+                <div class="transport-item">
+                    <div class="transport-details">
+                        <div style="font-weight: bold; color: var(--primary-color);">✈️ Emirates</div>
+                        <div class="transport-time">
+                            <strong>21:40</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">CDG</span>
+                        </div>
+                        <div class="transport-line"></div>
+                        <div class="transport-time">
+                            <strong>23:50</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">DPS (+1)</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.5rem; font-weight: bold;">699 €</div>
+                        <button class="btn btn-primary" style="margin-top: 5px;">Sélectionner</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="hebergements" class="section-container">
+            <div class="section-header">
+                <h2>Hébergements Recommandés</h2>
+            </div>
+            <div class="grid-layout">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-title">The Kayon Resort</div>
+                        <div class="card-rating">★★★★★</div>
+                        <p>Superbe resort en pleine jungle balinaise avec piscine à débordement.</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                            <strong style="font-size: 1.2rem;">125 € / nuit</strong>
+                            <button class="btn btn-primary">Voir dispo</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-title">Villa Umah Sunset</div>
+                        <div class="card-rating">★★★★☆</div>
+                        <p>Villa privative avec jardin et accès direct à la plage.</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                            <strong style="font-size: 1.2rem;">180 € / nuit</strong>
+                            <button class="btn btn-primary">Voir dispo</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-col">
+                <h4>VoyageVista</h4>
+                <p style="color: #ccc; font-size: 0.9rem;">Votre partenaire de confiance pour organiser des séjours inoubliables partout dans le monde.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Plateforme</h4>
+                <ul>
+                    <li>Comment ça marche</li>
+                    <li>Planifier un itinéraire</li>
+                    <li>Nos garanties</li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Assistance</h4>
+                <ul>
+                    <li>Centre d'aide</li>
+                    <li>Nous contacter</li>
+                    <li>FAQ</li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Mentions Légales</h4>
+                <ul>
+                    <li>Conditions générales</li>
+                    <li>Politique de confidentialité</li>
+                    <li>Projet Étudiant ING2 - 2026</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 VoyageVista. Projet Web Dynamique.
+        </div>
+    </footer>
+
+    <script>
+        // Logique de simulation pour le panier
+        document.addEventListener('DOMContentLoaded', () => {
+            const selectButtons = document.querySelectorAll('.btn-primary');
+            let cartCount = 0;
+            const cartButton = document.querySelector('.user-actions .btn-primary');
+
+            selectButtons.forEach(button => {
+                if(button.textContent === 'Sélectionner' || button.textContent === 'Voir dispo') {
+                    button.addEventListener('click', function() {
+                        cartCount++;
+                        cartButton.textContent = `Panier (${cartCount})`;
+                        this.textContent = 'Ajouté ✓';
+                        this.style.backgroundColor = 'var(--secondary-color)';
+                        setTimeout(() => {
+                            this.textContent = 'Sélectionner';
+                            this.style.backgroundColor = 'var(--primary-color)';
+                        }, 2000);
+                    });
+                }
+            });
+            
+            console.log("Système VoyageVista initialisé avec succès.");
+        });
+    </script>
+</body>
+</html>
