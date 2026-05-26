@@ -63,6 +63,16 @@ export default function App() {
     const enriched = { ...userData, name: nom, initials: initials.toUpperCase() };
     setUser(enriched);
     localStorage.setItem('vv_user', JSON.stringify(enriched));
+    const nom = typeof userData === 'string' ? userData : userData.nom;
+    const parts = nom.trim().split(' ');
+    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    setUser({
+      id: userData.id ?? null,
+      name: nom,
+      email: userData.email ?? null,
+      role: userData.role ?? 'user',
+      initials: initials.toUpperCase(),
+    });
     setAuthMode(null);
     setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
   };
@@ -102,7 +112,7 @@ export default function App() {
         <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} />
       )}
       {screen === 'itinerary' && (
-        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} />
+        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
       )}
       {screen === 'cart' && (
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
