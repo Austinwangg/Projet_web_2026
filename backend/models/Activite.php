@@ -13,4 +13,23 @@ class Activite {
         $stmt->execute([$id]);
         return $stmt->fetch();
     }
+
+    public static function create(array $data): int {
+        $stmt = getDB()->prepare(
+            'INSERT INTO activites (destination_id, nom, categorie, prix, description) VALUES (?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $data['destination_id'],
+            $data['nom'],
+            $data['categorie'] ?? '',
+            $data['prix'] ?? 0,
+            $data['description'] ?? '',
+        ]);
+        return (int) getDB()->lastInsertId();
+    }
+
+    public static function delete(int $id): bool {
+        $stmt = getDB()->prepare('DELETE FROM activites WHERE id = ?');
+        return $stmt->execute([$id]);
+    }
 }

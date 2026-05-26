@@ -13,4 +13,25 @@ class Hebergement {
         $stmt->execute([$id]);
         return $stmt->fetch();
     }
+
+    public static function create(array $data): int {
+        $stmt = getDB()->prepare(
+            'INSERT INTO hebergements (destination_id, nom, type, prix_nuit, nb_etoiles, image_url)
+             VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $data['destination_id'],
+            $data['nom'],
+            $data['type'],
+            $data['prix_nuit'],
+            $data['nb_etoiles'] ?? 3,
+            $data['image_url'] ?? '',
+        ]);
+        return (int) getDB()->lastInsertId();
+    }
+
+    public static function delete(int $id): bool {
+        $stmt = getDB()->prepare('DELETE FROM hebergements WHERE id = ?');
+        return $stmt->execute([$id]);
+    }
 }

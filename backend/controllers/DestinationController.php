@@ -1,10 +1,6 @@
 <?php
 require_once __DIR__ . '/../models/Destination.php';
 
-/**
- * Contrôleur Destinations – gère les requêtes HTTP et délègue au modèle.
- * Retourne toujours du JSON.
- */
 class DestinationController {
 
     public static function handle(): void {
@@ -22,10 +18,22 @@ class DestinationController {
                 break;
 
             case 'POST':
-                $data = json_decode(file_get_contents('php://input'), true);
+                $data  = json_decode(file_get_contents('php://input'), true);
                 $newId = Destination::create($data);
                 http_response_code(201);
-                echo json_encode(['id' => $newId, 'message' => 'Destination créée']);
+                echo json_encode(['id' => $newId, 'message' => 'Destination créée'], JSON_UNESCAPED_UNICODE);
+                break;
+
+            case 'PUT':
+                $data = json_decode(file_get_contents('php://input'), true);
+                Destination::update($id, $data);
+                echo json_encode(['message' => 'Destination mise à jour'], JSON_UNESCAPED_UNICODE);
+                break;
+
+            case 'DELETE':
+                if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
+                Destination::delete($id);
+                echo json_encode(['message' => 'Destination supprimée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             default:

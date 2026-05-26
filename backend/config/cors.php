@@ -1,15 +1,11 @@
 <?php
-// Affichage des erreurs PHP – à retirer avant la présentation
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 /**
  * Middleware CORS – autorise les requêtes depuis le frontend React (Vite dev server).
  * À inclure en tête de chaque fichier d'entrée d'API.
  *
  * En production, remplacer '*' par l'URL exacte du frontend déployé.
  */
-header('Access-Control-Allow-Origin: http://localhost:5173');
+header('Access-Control-Allow-Origin: http://localhost:3000');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json; charset=utf-8');

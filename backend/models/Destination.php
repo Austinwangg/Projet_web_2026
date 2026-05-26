@@ -1,10 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
-/**
- * Modèle Destination – accès aux données de la table `destinations`.
- * Toutes les requêtes SQL passent par des requêtes préparées (protection injection).
- */
 class Destination {
 
     public static function getAll(): array {
@@ -22,7 +18,19 @@ class Destination {
         $stmt = getDB()->prepare(
             'INSERT INTO destinations (nom, pays, description, image_url) VALUES (?, ?, ?, ?)'
         );
-        $stmt->execute([$data['nom'], $data['pays'], $data['description'], $data['image_url']]);
+        $stmt->execute([$data['nom'], $data['pays'], $data['description'] ?? '', $data['image_url'] ?? '']);
         return (int) getDB()->lastInsertId();
+    }
+
+    public static function update(int $id, array $data): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE destinations SET nom = ?, pays = ?, description = ?, image_url = ? WHERE id = ?'
+        );
+        return $stmt->execute([$data['nom'], $data['pays'], $data['description'] ?? '', $data['image_url'] ?? '', $id]);
+    }
+
+    public static function delete(int $id): bool {
+        $stmt = getDB()->prepare('DELETE FROM destinations WHERE id = ?');
+        return $stmt->execute([$id]);
     }
 }

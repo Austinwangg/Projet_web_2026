@@ -6,11 +6,10 @@
  * ⚠ En production : stocker les credentials dans des variables d'environnement.
  */
 
-define('DB_HOST',    '127.0.0.1');  // 127.0.0.1 plutôt que 'localhost' pour forcer TCP/IP
-define('DB_PORT',    '3306');
+define('DB_HOST',    'localhost');
 define('DB_NAME',    'voyagevista');
 define('DB_USER',    'root');
-define('DB_PASS',    '');           // MAMP sans mot de passe
+define('DB_PASS',    'root');       // MAMP : root/root par défaut
 define('DB_CHARSET', 'utf8mb4');
 
 function getDB(): PDO {
@@ -18,8 +17,8 @@ function getDB(): PDO {
 
     if ($pdo === null) {
         $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
+            'mysql:host=%s;dbname=%s;charset=%s',
+            DB_HOST, DB_NAME, DB_CHARSET
         );
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
