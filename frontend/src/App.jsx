@@ -1,12 +1,108 @@
-import AppRouter from './router/AppRouter.jsx'
+import { useState, useEffect } from 'react';
+import { VV_I18N } from './i18n.js';
+import Header from './components/Header.jsx';
+import Footer from './components/Footer.jsx';
+import AuthModal from './components/AuthModal.jsx';
+import Toast from './components/Toast.jsx';
+import ScreenHome from './screens/ScreenHome.jsx';
+import ScreenResults from './screens/ScreenResults.jsx';
+import ScreenDetail from './screens/ScreenDetail.jsx';
+import ScreenItinerary from './screens/ScreenItinerary.jsx';
+import ScreenCart from './screens/ScreenCart.jsx';
+import ScreenPayment from './screens/ScreenPayment.jsx';
+import ScreenAccount from './screens/ScreenAccount.jsx';
+import ScreenAdmin from './screens/ScreenAdmin.jsx';
 
-/**
- * Composant racine : délègue toute la logique de navigation à AppRouter.
- * Garder App.jsx minimaliste permet d'ajouter facilement des providers
- * (Context, Redux, etc.) sans toucher au routage.
- */
-function App() {
-  return <AppRouter />
+export default function App() {
+  const [lang, setLang] = useState('fr');
+  const [screen, setScreen] = useState('home');
+  const [detailId, setDetailId] = useState('shanghai');
+  const [cart, setCart] = useState([]);
+  const [search, setSearch] = useState({
+    where: '',
+    dates: { start: new Date(2026, 5, 15), end: new Date(2026, 5, 22) },
+    travelers: { adult: 2, student: 0, child: 0 },
+    type: 'all'
+  });
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState(null);
+  const [toast, setToast] = useState('');
+  const [theme, setTheme] = useState('light');
+  const [cardStyle] = useState('clean');
+
+  const T = VV_I18N[lang];
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const navigate = (s, args = {}) => {
+    if (s === 'detail' && args.id) setDetailId(args.id);
+    setScreen(s);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const addToCart = (items) => {
+    setCart(prev => {
+      const ids = new Set(prev.map(p => p.id));
+      const next = [...prev];
+      items.forEach(it => { if (!ids.has(it.id)) next.push(it); });
+      return next;
+    });
+    setToast(lang === 'fr' ? 'Ajouté à votre panier' : 'Added to cart');
+  };
+
+  const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
+
+  const onAuth = (name) => {
+    const parts = name.trim().split(' ');
+    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    setUser({ name, initials: initials.toUpperCase() });
+    setAuthMode(null);
+    setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
+  };
+
+  const onSignOut = () => { setUser(null); navigate('home'); };
+
+  return (
+    <>
+      <Header
+        T={T} lang={lang} setLang={setLang}
+        theme={theme} setTheme={setTheme}
+        screen={screen} navigate={navigate}
+        user={user} onSignIn={(m) => setAuthMode(m)} onSignOut={onSignOut}
+        cartCount={cart.length}
+      />
+
+      {screen === 'home' && (
+        <ScreenHome T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
+      )}
+      {screen === 'results' && (
+        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
+      )}
+      {screen === 'detail' && (
+        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} />
+      )}
+      {screen === 'itinerary' && (
+        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} />
+      )}
+      {screen === 'cart' && (
+        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
+      )}
+      {screen === 'payment' && (
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} />
+      )}
+      {screen === 'account' && (
+        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} />
+      )}
+      {screen === 'admin' && (
+        <ScreenAdmin T={T} lang={lang} navigate={navigate} />
+      )}
+
+      <Footer T={T} />
+
+      <AuthModal mode={authMode} T={T} onClose={() => setAuthMode(null)} onAuth={onAuth} />
+      <Toast message={toast} onClose={() => setToast('')} />
+    </>
+  );
 }
-
-export default App
