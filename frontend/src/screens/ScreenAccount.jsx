@@ -1,7 +1,4 @@
 import { useState, useEffect } from 'react';
-import { destinations, reservations } from '../data.js';
-import Placeholder from '../components/Placeholder.jsx';
-import { getNotifications, markRead, markAllRead } from '../services/notificationsService.js';
 import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
@@ -48,7 +45,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     if (tab === 'notifications' && user?.id) {
       setNotifsLoading(true);
       getNotifications(user.id)
-        .then(r => setNotifs(r.data))
+        .then(r => setNotifs(r.data.notifications || []))
         .catch(() => setNotifs([]))
         .finally(() => setNotifsLoading(false));
     }
@@ -100,6 +97,13 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   };
 
   const unreadCount = notifs.filter(n => !n.lu).length;
+
+  const iconForType = (type) => ({ booking: '✈️', promotion: '🎁', info: 'ℹ️', alert: '⚠️' }[type] || '🔔');
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
   const statusLabel = (s) => ({
     confirmee: T.account.confirmed,

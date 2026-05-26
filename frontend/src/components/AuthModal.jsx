@@ -64,7 +64,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jean Dupont"
               />
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} />
             </div>
           )}
           <div>
@@ -103,21 +102,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
             disabled={loading}
           >
             {loading ? '…' : isSignup ? T.auth.signup : T.auth.signin}
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKey} />
-          </div>
-          <div>
-            <label className="field-label">{T.auth.password}</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKey} />
-          </div>
-          {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
-          {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
-          {error && (
-            <div style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'color-mix(in oklab, var(--danger) 10%, var(--surface))', borderRadius: 6 }}>
-              {error}
-            </div>
-          )}
-          <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
-            {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           </button>
 
           <div className="center muted" style={{ fontSize: 13 }}>

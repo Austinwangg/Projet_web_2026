@@ -57,22 +57,18 @@ export default function App() {
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
   const onAuth = (userData) => {
-    const nom = userData.nom || '';
+    const nom = typeof userData === 'string' ? userData : (userData.nom || '');
     const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-    const enriched = { ...userData, name: nom, initials: initials.toUpperCase() };
-    setUser(enriched);
-    localStorage.setItem('vv_user', JSON.stringify(enriched));
-    const nom = typeof userData === 'string' ? userData : userData.nom;
-    const parts = nom.trim().split(' ');
-    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
-    setUser({
+    const enriched = {
       id: userData.id ?? null,
       name: nom,
       email: userData.email ?? null,
       role: userData.role ?? 'user',
       initials: initials.toUpperCase(),
-    });
+    };
+    setUser(enriched);
+    localStorage.setItem('vv_user', JSON.stringify(enriched));
     setAuthMode(null);
     setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
   };
