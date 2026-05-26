@@ -10,7 +10,7 @@ export default defineConfig({
         target: 'http://localhost',
         changeOrigin: true,
         // Adapter ce chemin au nom du dossier dans htdocs (= nom du repo GitHub)
-        rewrite: (path) => path.replace(/^\/api/, '/Projet-web-2026/backend/api'),
+        rewrite: (path) => path.replace(/^\/api/, '/Projet_web_2026/backend/api'),
       },
     },
   },
