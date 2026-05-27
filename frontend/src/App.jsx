@@ -12,6 +12,9 @@ import ScreenCart from './screens/ScreenCart.jsx';
 import ScreenPayment from './screens/ScreenPayment.jsx';
 import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
+// TEST_PERSONS
+import ScreenPersons from './screens/ScreenPersons.jsx';
+// END TEST_PERSONS
 import ScreenTransport from './screens/ScreenTransport.jsx';
 import ScreenHebergement from './screens/ScreenHebergement.jsx';
 
@@ -59,6 +62,10 @@ export default function App() {
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
   const onAuth = (userData) => {
+    const nom = userData.nom || '';
+    const parts = nom.trim().split(' ');
+    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    const enriched = { ...userData, name: nom, initials: initials.toUpperCase() };
     const nom = typeof userData === 'string' ? userData : (userData.nom || '');
     const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
@@ -130,6 +137,10 @@ export default function App() {
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
       )}
+      {/* TEST_PERSONS */}
+      {screen === 'persons' && <ScreenPersons navigate={navigate} />}
+      {/* END TEST_PERSONS */}
+
       {screen === 'admin' && user?.role !== 'admin' && (
         <main className="container" style={{ paddingTop: 80, textAlign: 'center' }}>
           <p className="serif" style={{ fontSize: 32 }}>Accès refusé</p>
