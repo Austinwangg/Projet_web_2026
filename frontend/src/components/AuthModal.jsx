@@ -1,31 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Logo from './Logo.jsx';
 import { login, register } from '../services/authService.js';
 
 export default function AuthModal({ mode, T, onClose, onAuth }) {
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName]         = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (mode) {
+      setEmail('');
+      setPassword('');
+      setName('');
+      setError('');
+    }
+  }, [mode]);
 
   if (!mode) return null;
   const isSignup = mode === 'signup';
 
   const handleSubmit = async () => {
     setError('');
-    if (!email || !password || (isSignup && !name)) {
-      setError('Veuillez remplir tous les champs.');
-      return;
-    }
     setLoading(true);
     try {
-      const res = isSignup
-        ? await register(name, email, password)
-        : await login(email, password);
-      onAuth(res.data);
+      let userData;
+      if (isSignup) {
+        const res = await register(name, email, password);
+        userData = res.data;
+      } else {
+        const res = await login(email, password);
+        userData = res.data;
+      }
+      onAuth(userData);
     } catch (err) {
       setError(err.response?.data?.error || 'Une erreur est survenue.');
+      setError(err.response?.data?.error || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -49,6 +63,12 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
             <div>
               <label className="field-label">{T.auth.name}</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Jean Dupont" />
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jean Dupont"
+              />
             </div>
           )}
           <div>
@@ -68,6 +88,12 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
 
           <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
             {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? '…' : isSignup ? T.auth.signup : T.auth.signin}
           </button>
 
           <div className="center muted" style={{ fontSize: 13 }}>

@@ -10,9 +10,22 @@ class HebergementController {
 
         switch ($method) {
             case 'GET':
-                if ($id)     echo json_encode(Hebergement::getById($id) ?: ['error'=>'Non trouvé'], JSON_UNESCAPED_UNICODE);
-                elseif ($destId) echo json_encode(Hebergement::getByDest($destId), JSON_UNESCAPED_UNICODE);
-                else         echo json_encode(Hebergement::getAll(), JSON_UNESCAPED_UNICODE);
+                $checkDispo = isset($_GET['check_dispo']) ? (int) $_GET['check_dispo'] : null;
+                $withDest   = isset($_GET['with_dest']) && $_GET['with_dest'] === '1';
+                $pays       = isset($_GET['pays']) ? trim($_GET['pays']) : null;
+                if ($checkDispo) {
+                    echo json_encode(['available' => Hebergement::isAvailable($checkDispo)], JSON_UNESCAPED_UNICODE);
+                } elseif ($id) {
+                    echo json_encode(Hebergement::getById($id) ?: ['error'=>'Non trouvé'], JSON_UNESCAPED_UNICODE);
+                } elseif ($pays) {
+                    echo json_encode(Hebergement::getByPays($pays), JSON_UNESCAPED_UNICODE);
+                } elseif ($destId) {
+                    echo json_encode(Hebergement::getByDest($destId), JSON_UNESCAPED_UNICODE);
+                } elseif ($withDest) {
+                    echo json_encode(Hebergement::getAllWithDest(), JSON_UNESCAPED_UNICODE);
+                } else {
+                    echo json_encode(Hebergement::getAll(), JSON_UNESCAPED_UNICODE);
+                }
                 break;
             case 'POST':
                 $data = json_decode(file_get_contents('php://input'), true);

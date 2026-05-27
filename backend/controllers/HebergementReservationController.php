@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../models/Reservation.php';
+require_once __DIR__ . '/../models/HebergementReservation.php';
 
-class ReservationController {
+class HebergementReservationController {
 
     public static function handle(): void {
         $method = $_SERVER['REQUEST_METHOD'];
@@ -13,34 +13,26 @@ class ReservationController {
         switch ($method) {
             case 'GET':
                 if ($id) {
-                    $item = Reservation::getById($id);
+                    $item = HebergementReservation::getById($id);
                     echo json_encode($item ?: ['error' => 'Non trouvé'], JSON_UNESCAPED_UNICODE);
                 } elseif ($userId) {
-                    echo json_encode(Reservation::getByUser($userId), JSON_UNESCAPED_UNICODE);
+                    echo json_encode(HebergementReservation::getByUser($userId), JSON_UNESCAPED_UNICODE);
                 } else {
-                    echo json_encode(Reservation::getAll(), JSON_UNESCAPED_UNICODE);
+                    http_response_code(400);
+                    echo json_encode(['error' => 'user_id requis'], JSON_UNESCAPED_UNICODE);
                 }
                 break;
 
             case 'POST':
                 $data = json_decode(file_get_contents('php://input'), true);
                 try {
-                    $newId = Reservation::create($data);
-
-                    if (!empty($data['activite_ids']) && is_array($data['activite_ids'])) {
-                        Reservation::addActivites(
-                            $newId,
-                            $data['activite_ids'],
-                            (int) ($data['nb_voyageurs'] ?? 1)
-                        );
-                    }
-
+                    $newId   = HebergementReservation::create($data);
+                    $created = HebergementReservation::getById($newId);
                     http_response_code(201);
-                    $created = Reservation::getById($newId);
                     echo json_encode([
                         'id'        => $newId,
                         'reference' => $created['reference'] ?? '',
-                        'message'   => 'Réservation créée',
+                        'message'   => 'Réservation hébergement créée',
                     ], JSON_UNESCAPED_UNICODE);
                 } catch (\InvalidArgumentException $e) {
                     http_response_code(422);
@@ -54,24 +46,15 @@ class ReservationController {
             case 'PUT':
                 if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 $data = json_decode(file_get_contents('php://input'), true);
-
                 try {
                     if (isset($data['statut']) && $data['statut'] === 'annulee') {
-                        Reservation::cancel($id);
-                    } else {
-                        Reservation::update($id, $data);
+                        HebergementReservation::cancel($id);
                     }
                     echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
-                } catch (\InvalidArgumentException $e) {
+                } catch (\Exception $e) {
                     http_response_code(422);
                     echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
                 }
-                break;
-
-            case 'DELETE':
-                if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
-                Reservation::delete($id);
-                echo json_encode(['message' => 'Réservation supprimée'], JSON_UNESCAPED_UNICODE);
                 break;
 
             default:

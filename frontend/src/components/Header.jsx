@@ -1,11 +1,13 @@
 import Logo from './Logo.jsx';
+import Notifications from './Notifications.jsx';
 
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
-    { id: 'destinations', label: T.nav.destinations },
-    { id: 'stays', label: T.nav.stays },
-    { id: 'activities', label: T.nav.activities },
-    { id: 'transport', label: T.nav.transport }
+    { id: 'destinations',  label: T.nav.destinations,  target: 'results' },
+    { id: 'stays',         label: T.nav.stays,         target: 'results' },
+    { id: 'hebergement',   label: T.nav.hebergement,   target: 'hebergement' },
+    { id: 'activities',    label: T.nav.activities,    target: 'results' },
+    { id: 'transport',     label: T.nav.transport,     target: 'transport' },
   ];
   return (
     <header className="vv-header">
@@ -16,8 +18,14 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
         <nav className="vv-nav">
           {links.map(l => (
             <a key={l.id}
-               className={screen === l.id || (l.id === 'destinations' && screen === 'results') ? 'active' : ''}
-               onClick={() => navigate('results')}
+               className={
+                 screen === l.target ||
+                 (l.id === 'destinations' && (screen === 'results' || screen === 'detail')) ||
+                 (l.id === 'transport' && screen === 'transport') ||
+                 (l.id === 'hebergement' && screen === 'hebergement')
+                   ? 'active' : ''
+               }
+               onClick={() => navigate(l.target)}
                style={{ cursor: 'pointer' }}>
               {l.label}
             </a>
@@ -47,6 +55,7 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('cart')} style={{ position: 'relative' }}>
             ⊕ {cartCount > 0 ? `(${cartCount})` : ''}
           </button>
+          <Notifications user={user} />
           {user ? (
             <button onClick={() => navigate('account')} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
               <div className="avatar">{user.initials}</div>
