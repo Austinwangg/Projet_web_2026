@@ -3,10 +3,11 @@ import Notifications from './Notifications.jsx';
 
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
-    { id: 'destinations', label: T.nav.destinations, target: 'results' },
-    { id: 'stays',        label: T.nav.stays,        target: 'results' },
-    { id: 'activities',   label: T.nav.activities,   target: 'results' },
-    { id: 'transport',    label: T.nav.transport,    target: 'transport' },
+    { id: 'destinations',  label: T.nav.destinations,  target: 'results' },
+    { id: 'stays',         label: T.nav.stays,         target: 'results' },
+    { id: 'hebergement',   label: T.nav.hebergement,   target: 'hebergement' },
+    { id: 'activities',    label: T.nav.activities,    target: 'results' },
+    { id: 'transport',     label: T.nav.transport,     target: 'transport' },
   ];
   return (
     <header className="vv-header">
@@ -20,7 +21,8 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
                className={
                  screen === l.target ||
                  (l.id === 'destinations' && (screen === 'results' || screen === 'detail')) ||
-                 (l.id === 'transport' && screen === 'transport')
+                 (l.id === 'transport' && screen === 'transport') ||
+                 (l.id === 'hebergement' && screen === 'hebergement')
                    ? 'active' : ''
                }
                onClick={() => navigate(l.target)}
