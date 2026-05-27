@@ -3,10 +3,10 @@ import Notifications from './Notifications.jsx';
 
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
-    { id: 'destinations', label: T.nav.destinations },
-    { id: 'stays', label: T.nav.stays },
-    { id: 'activities', label: T.nav.activities },
-    { id: 'transport', label: T.nav.transport }
+    { id: 'destinations', label: T.nav.destinations, target: 'results' },
+    { id: 'stays',        label: T.nav.stays,        target: 'results' },
+    { id: 'activities',   label: T.nav.activities,   target: 'results' },
+    { id: 'transport',    label: T.nav.transport,    target: 'transport' },
   ];
   return (
     <header className="vv-header">
@@ -17,8 +17,13 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
         <nav className="vv-nav">
           {links.map(l => (
             <a key={l.id}
-               className={screen === l.id || (l.id === 'destinations' && screen === 'results') ? 'active' : ''}
-               onClick={() => navigate('results')}
+               className={
+                 screen === l.target ||
+                 (l.id === 'destinations' && (screen === 'results' || screen === 'detail')) ||
+                 (l.id === 'transport' && screen === 'transport')
+                   ? 'active' : ''
+               }
+               onClick={() => navigate(l.target)}
                style={{ cursor: 'pointer' }}>
               {l.label}
             </a>

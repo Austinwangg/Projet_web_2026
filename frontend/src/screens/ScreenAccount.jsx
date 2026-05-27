@@ -27,11 +27,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   // Réservations
   const [reservations, setReservations] = useState([]);
   const [resLoading, setResLoading]     = useState(false);
-  const [resActionId, setResActionId]   = useState(null); // id of reservation being actioned
-  const [modifyTarget, setModifyTarget] = useState(null); // reservation being modified
-  const [modifyData, setModifyData]     = useState({ date_depart: '', date_retour: '', nb_voyageurs: 1 });
-  const [modifySaving, setModifySaving] = useState(false);
-  const [modifyMsg, setModifyMsg]       = useState('');
+  const [resActionId, setResActionId]   = useState(null);
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -107,47 +103,18 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     setResActionId(r.id);
     try {
       await updateReservationStatus(r.id, 'annulee');
+      // Le backend gère déjà la restitution des places transport/hébergement/activités dans Reservation::cancel()
       setReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
       createNotification({
         utilisateur_id: user.id,
         type:    'info',
         titre:   lang === 'fr' ? `Réservation annulée · ${r.reference}` : `Booking cancelled · ${r.reference}`,
         message: lang === 'fr'
-          ? `Votre réservation ${r.reference} a été annulée.`
-          : `Your booking ${r.reference} has been cancelled.`,
+          ? `Votre réservation ${r.reference} a été annulée. Les places ont été restituées.`
+          : `Your booking ${r.reference} has been cancelled. Seats have been released.`,
       }).catch(() => {});
     } catch { /* silent */ } finally {
       setResActionId(null);
-    }
-  };
-
-  const openModify = (r) => {
-    setModifyTarget(r);
-    setModifyData({ date_depart: r.date_depart, date_retour: r.date_retour, nb_voyageurs: r.nb_voyageurs });
-    setModifyMsg('');
-  };
-
-  const handleModifyReservation = async () => {
-    if (!modifyTarget) return;
-    setModifySaving(true);
-    setModifyMsg('');
-    try {
-      await api.put(`/reservations?id=${modifyTarget.id}`, modifyData);
-      setReservations(prev => prev.map(x => x.id === modifyTarget.id ? { ...x, ...modifyData } : x));
-      createNotification({
-        utilisateur_id: user.id,
-        type:    'info',
-        titre:   lang === 'fr' ? `Réservation modifiée · ${modifyTarget.reference}` : `Booking updated · ${modifyTarget.reference}`,
-        message: lang === 'fr'
-          ? `Votre réservation ${modifyTarget.reference} a été mise à jour.`
-          : `Your booking ${modifyTarget.reference} has been updated.`,
-      }).catch(() => {});
-      setModifyMsg(lang === 'fr' ? '✓ Réservation mise à jour' : '✓ Booking updated');
-      setTimeout(() => setModifyTarget(null), 1200);
-    } catch (err) {
-      setModifyMsg(err.response?.data?.error || 'Erreur lors de la modification.');
-    } finally {
-      setModifySaving(false);
     }
   };
 
@@ -211,7 +178,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
             const destName = lang === 'fr' ? (r.ville || destSlug) : (r.pays_en || r.ville || destSlug);
             const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
-            const canModify = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
                 <Placeholder label={destName.toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
@@ -224,15 +190,18 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                   <div className="muted mt-4" style={{ fontSize: 13.5 }}>
                     {r.date_depart} → {r.date_retour} · {T.account.travelers(r.nb_voyageurs)}
                   </div>
+                  {r.transport_id && (
+                    <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
+                      <span className="tag" style={{ fontSize: 12 }}>
+                        ✈ {r.transport_depart || ''} → {r.transport_arrivee || ''}
+                        {r.compagnie ? ` · ${r.compagnie}` : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
                   <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
                   <div className="row gap-8">
-                    {canModify && (
-                      <button className="btn btn-outline btn-sm" onClick={() => openModify(r)}>
-                        {T.account.modify}
-                      </button>
-                    )}
                     {canCancel && (
                       <button
                         className="btn btn-ghost btn-sm"
@@ -249,50 +218,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             );
           })}
 
-          {/* Modify modal */}
-          {modifyTarget && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center', zIndex: 1000 }} onClick={() => setModifyTarget(null)}>
-              <div className="card-tile fade-up" style={{ padding: 40, width: 480, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-                <h3 className="serif mb-24" style={{ fontSize: 24 }}>
-                  {lang === 'fr' ? 'Modifier la réservation' : 'Modify booking'} · {modifyTarget.reference}
-                </h3>
-                <div className="col gap-16">
-                  <div className="grid grid-2 gap-16">
-                    <div>
-                      <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Departure date'}</label>
-                      <input className="input" type="date" value={modifyData.date_depart}
-                        onChange={e => setModifyData(d => ({ ...d, date_depart: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="field-label">{lang === 'fr' ? 'Date de retour' : 'Return date'}</label>
-                      <input className="input" type="date" value={modifyData.date_retour}
-                        onChange={e => setModifyData(d => ({ ...d, date_retour: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
-                    <input className="input" type="number" min="1" max="20" value={modifyData.nb_voyageurs}
-                      onChange={e => setModifyData(d => ({ ...d, nb_voyageurs: parseInt(e.target.value, 10) || 1 }))} />
-                  </div>
-                  {modifyMsg && (
-                    <div style={{ fontSize: 13, padding: '8px 12px', borderRadius: 8,
-                      color: modifyMsg.startsWith('✓') ? 'var(--ok)' : 'var(--danger)',
-                      background: modifyMsg.startsWith('✓') ? 'color-mix(in oklab,var(--ok) 10%,transparent)' : 'color-mix(in oklab,var(--danger) 10%,transparent)' }}>
-                      {modifyMsg}
-                    </div>
-                  )}
-                  <div className="row gap-12 mt-8">
-                    <button className="btn btn-primary" onClick={handleModifyReservation} disabled={modifySaving}>
-                      {modifySaving ? '…' : (lang === 'fr' ? 'Enregistrer' : 'Save changes')}
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => setModifyTarget(null)}>
-                      {lang === 'fr' ? 'Annuler' : 'Cancel'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

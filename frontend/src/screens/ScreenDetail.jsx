@@ -116,10 +116,14 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
         id: 'transport-' + transport.id,
         kind: 'flight',
         destSlug: destId,
-        title: `${lang === 'fr' ? 'Vol A/R' : 'Round-trip'} · ${transport.depart} → ${transport.arrivee}`,
-        sub: `${transport.compagnie} · ${transport.duree || ''}`,
+        transportDbId: transport.id,
+        title: `${lang === 'fr' ? 'Transport A/R' : 'Round-trip'} · ${transport.depart} → ${transport.arrivee}`,
+        sub: `${transport.compagnie} · ${transport.duree || ''} · ${dateDepart} → ${dateRetour}`,
         price: transportPrice * nbVoyageurs,
         icon: '✈',
+        dateDepart,
+        dateRetour,
+        nbVoyageurs,
       });
     }
     if (hotel) {
@@ -337,33 +341,108 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
 
           {/* TRANSPORT */}
           {tab === 'transport' && (
-            <div className="col gap-12 fade-up">
-              <p className="muted mb-8" style={{ fontSize: 14 }}>
-                {lang === 'fr' ? 'Choisissez votre transport — le total se met à jour.' : 'Pick your transport — total updates.'}
+            <div className="col gap-16 fade-up">
+              {/* Info dates du séjour */}
+              <div className="card-tile" style={{ padding: 16, background: 'color-mix(in oklab, var(--primary) 6%, var(--surface))', border: '1px solid color-mix(in oklab, var(--primary) 20%, transparent)' }}>
+                <div className="row gap-12" style={{ flexWrap: 'wrap' }}>
+                  <div>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DÉPART' : 'DEPARTURE'}</span>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{dateDepart}</div>
+                  </div>
+                  <div style={{ alignSelf: 'center', color: 'var(--ink-faint)' }}>→</div>
+                  <div>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'RETOUR' : 'RETURN'}</span>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{dateRetour}</div>
+                  </div>
+                  <div style={{ flex: 1 }} />
+                  <div className="muted" style={{ fontSize: 13, alignSelf: 'center' }}>
+                    {lang === 'fr' ? `${nbVoyageurs} voyageur(s)` : `${nbVoyageurs} traveler(s)`}
+                  </div>
+                </div>
+              </div>
+
+              <p className="muted" style={{ fontSize: 13 }}>
+                {lang === 'fr'
+                  ? 'Choisissez votre transport pour cette destination — le total se met à jour automatiquement.'
+                  : 'Choose your transport for this destination — the total updates automatically.'}
               </p>
+
               {(dest.transports || []).length === 0 ? (
-                <p className="muted">{lang === 'fr' ? 'Aucun transport disponible.' : 'No transport available.'}</p>
+                <div className="card-tile center" style={{ padding: 40 }}>
+                  <p className="muted">{lang === 'fr' ? 'Aucun transport disponible pour cette destination.' : 'No transport available for this destination.'}</p>
+                  <p className="muted mt-8" style={{ fontSize: 13 }}>
+                    {lang === 'fr' ? 'Consultez l\'onglet Transport du menu pour rechercher d\'autres options.' : 'Check the Transport tab in the menu to search for other options.'}
+                  </p>
+                </div>
               ) : (
-                (dest.transports || []).map(t => (
-                  <label key={t.id} className="card-tile" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 20, padding: 20, cursor: 'pointer', borderColor: selectedTransport === t.id ? 'var(--ink)' : 'var(--line-soft)' }}>
-                    <input type="radio" name="transport" checked={selectedTransport === t.id} onChange={() => setSelectedTransport(t.id)} style={{ accentColor: 'var(--primary)' }} />
-                    <div>
-                      <div className="serif" style={{ fontSize: 20 }}>{t.compagnie}</div>
-                      <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{t.depart} → {t.arrivee} · {t.duree}</div>
-                      {t.horaire && <div className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4, letterSpacing: '0.06em' }}>{t.horaire}</div>}
-                      {t.places_dispo !== undefined && (
-                        <div className="mono" style={{ fontSize: 11, color: t.places_dispo < 5 ? 'var(--danger)' : 'var(--ok)', marginTop: 4 }}>
-                          {t.places_dispo} {lang === 'fr' ? 'places restantes' : 'seats left'}
+                (dest.transports || []).map(t => {
+                  const dispo    = parseInt(t.places_dispo ?? 50, 10);
+                  const full     = dispo < nbVoyageurs;
+                  const lowDispo = !full && dispo <= 5;
+                  return (
+                    <label
+                      key={t.id}
+                      className="card-tile"
+                      style={{
+                        display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 20, padding: 20,
+                        cursor: full ? 'not-allowed' : 'pointer',
+                        opacity: full ? 0.5 : 1,
+                        borderColor: selectedTransport === t.id ? 'var(--ink)' : 'var(--line-soft)',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="transport"
+                        checked={selectedTransport === t.id}
+                        disabled={full}
+                        onChange={() => !full && setSelectedTransport(t.id)}
+                        style={{ accentColor: 'var(--primary)', marginTop: 2 }}
+                      />
+                      <div>
+                        <div className="row gap-8" style={{ alignItems: 'center', marginBottom: 2 }}>
+                          <span className="serif" style={{ fontSize: 20 }}>{t.compagnie || (lang === 'fr' ? 'Transport' : 'Transport')}</span>
+                          <span className="tag" style={{ fontSize: 11 }}>
+                            {t.type === 'avion' ? '✈' : t.type === 'train' ? '🚆' : t.type === 'bus' ? '🚌' : '🚗'} {t.type}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="serif" style={{ fontSize: 24 }}>{t.prix} €</div>
-                      <div className="muted" style={{ fontSize: 11 }}>{T.detail.perPerson}</div>
-                    </div>
-                  </label>
-                ))
+                        <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                          {t.depart} → {t.arrivee}{t.duree ? ` · ${t.duree}` : ''}
+                        </div>
+                        {t.horaire && (
+                          <div className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4, letterSpacing: '0.06em' }}>
+                            {t.horaire}
+                          </div>
+                        )}
+                        <div className="mono mt-6" style={{ fontSize: 11, color: full ? 'var(--danger)' : lowDispo ? 'var(--danger)' : 'var(--ok)' }}>
+                          {full
+                            ? (lang === 'fr' ? '✕ Complet' : '✕ Sold out')
+                            : `${dispo} ${lang === 'fr' ? 'places disponibles' : 'seats available'}${lowDispo ? ' ⚠' : ''}`}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div className="serif" style={{ fontSize: 24 }}>{t.prix} €</div>
+                        <div className="muted" style={{ fontSize: 11 }}>{T.detail.perPerson}</div>
+                        {selectedTransport === t.id && (
+                          <div className="mono" style={{ fontSize: 11, color: 'var(--primary)', marginTop: 4 }}>● {lang === 'fr' ? 'SÉLECTIONNÉ' : 'SELECTED'}</div>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })
               )}
+
+              {/* Lien vers recherche avancée */}
+              <div className="between" style={{ paddingTop: 8, borderTop: '1px solid var(--line-soft)', marginTop: 4 }}>
+                <span className="muted" style={{ fontSize: 13 }}>
+                  {lang === 'fr' ? 'Besoin de plus d\'options ?' : 'Need more options?'}
+                </span>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => navigate('transport')}
+                >
+                  {lang === 'fr' ? 'Recherche avancée →' : 'Advanced search →'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -544,7 +623,7 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
             <div className="row gap-8" style={{ alignItems: 'center' }}>
               <button className="btn btn-outline btn-sm" style={{ width: 28, height: 28, padding: 0 }} onClick={() => setNbVoyageurs(Math.max(1, nbVoyageurs - 1))}>−</button>
               <span className="mono" style={{ fontSize: 14, minWidth: 20, textAlign: 'center' }}>{nbVoyageurs}</span>
-              <button className="btn btn-outline btn-sm" style={{ width: 28, height: 28, padding: 0 }} onClick={() => setNbVoyageurs(Math.min(10, nbVoyageurs + 1))}>+</button>
+              <button className="btn btn-outline btn-sm" style={{ width: 28, height: 28, padding: 0 }} onClick={() => setNbVoyageurs(Math.min(20, nbVoyageurs + 1))}>+</button>
             </div>
           </div>
 

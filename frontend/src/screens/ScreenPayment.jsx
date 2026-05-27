@@ -8,6 +8,22 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
   const taxes    = Math.round(subtotal * 0.06);
   const total    = subtotal + taxes || 1408;
 
+  // Resolve nb_voyageurs from cart items first, then global search state
+  const flightItemTop = cart.find(i => i.kind === 'flight');
+  const hotelItemTop  = cart.find(i => i.kind === 'hotel');
+  const cartNb = flightItemTop?.nbVoyageurs || hotelItemTop?.nbVoyageurs
+    || cart.find(i => i.nbVoyageurs)?.nbVoyageurs || 0;
+  const searchNb = search?.travelers
+    ? (search.travelers.adult || 0) + (search.travelers.student || 0) + (search.travelers.child || 0)
+    : 0;
+  const nbVoyageurs = cartNb || searchNb || 2;
+
+  // Nights from hotel or fallback
+  const hotelItemNights = cart.find(i => i.kind === 'hotel');
+  const nights = hotelItemNights
+    ? Math.max(1, Math.round((new Date(hotelItemNights.dateRetour) - new Date(hotelItemNights.dateDepart)) / 86400000))
+    : 7;
+
   const [method, setMethod]       = useState('card');
   const [card, setCard]           = useState({ num: '4242 4242 4242 4242', name: user?.name || 'Jean Dupont', exp: '07/28', cvv: '342' });
   const [loading, setLoading]     = useState(false);
@@ -33,13 +49,15 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
       const destinationId = destRes.data?.id;
       if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable.' : 'Destination not found.');
 
-      // Extract hebergement and activite DB ids from cart
+      // Extract hebergement, transport and activite DB ids from cart
       const hotelItem      = cart.find(i => i.kind === 'hotel');
+      const flightItem     = cart.find(i => i.kind === 'flight');
       const actItems       = cart.filter(i => i.kind === 'activity');
       const hebergementId  = hotelItem?.hebergementDbId || null;
+      const transportId    = flightItem?.transportDbId || null;
       const activiteIds    = actItems.map(i => i.activiteDbId).filter(Boolean);
 
-      // Build dates — priorité aux dates de l'hôtel dans le panier (déjà calculées correctement dans ScreenDetail)
+      // Build dates — priorité transport > hôtel > recherche > fallback
       const fmtLocal = (d) => {
         const dt = d instanceof Date ? d : new Date(d);
         const y  = dt.getFullYear();
@@ -47,20 +65,22 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         const day = String(dt.getDate()).padStart(2, '0');
         return `${y}-${m}-${day}`;
       };
-      const hotelDates = cart.find(i => i.kind === 'hotel' && i.dateDepart);
-      const dateDepart = hotelDates?.dateDepart
+      const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
+      const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
+      const dateDepart = transportDates?.dateDepart
+        ?? hotelDates?.dateDepart
         ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
-      const dateRetour = hotelDates?.dateRetour
+      const dateRetour = transportDates?.dateRetour
+        ?? hotelDates?.dateRetour
         ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
 
-      const travelers = search?.travelers
-        ? (search.travelers.adult || 0) + (search.travelers.student || 0) + (search.travelers.child || 0)
-        : 2;
+      const travelers = nbVoyageurs;
 
       const res = await createReservation({
         utilisateur_id: user.id,
         destination_id: destinationId,
         hebergement_id: hebergementId,
+        transport_id:   transportId,
         activite_ids:   activiteIds,
         date_depart:    dateDepart,
         date_retour:    dateRetour,
@@ -225,7 +245,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             <span className="serif" style={{ fontSize: 36 }}>{total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
           </div>
           <div className="muted mono" style={{ fontSize: 11, letterSpacing: '0.08em' }}>
-            {(T.cart.for(2, 7)).toUpperCase()}
+            {(T.cart.for(nbVoyageurs, nights)).toUpperCase()}
           </div>
         </aside>
       </div>

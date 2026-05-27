@@ -12,6 +12,7 @@ import ScreenCart from './screens/ScreenCart.jsx';
 import ScreenPayment from './screens/ScreenPayment.jsx';
 import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
+import ScreenTransport from './screens/ScreenTransport.jsx';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -118,6 +119,9 @@ export default function App() {
       )}
       {screen === 'account' && (
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
+      )}
+      {screen === 'transport' && (
+        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />

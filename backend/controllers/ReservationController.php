@@ -42,6 +42,9 @@ class ReservationController {
                         'reference' => $created['reference'] ?? '',
                         'message'   => 'Réservation créée',
                     ], JSON_UNESCAPED_UNICODE);
+                } catch (\InvalidArgumentException $e) {
+                    http_response_code(422);
+                    echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
                 } catch (\Exception $e) {
                     http_response_code(409);
                     echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
@@ -52,12 +55,17 @@ class ReservationController {
                 if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 $data = json_decode(file_get_contents('php://input'), true);
 
-                if (isset($data['statut']) && $data['statut'] === 'annulee') {
-                    Reservation::cancel($id);
-                } else {
-                    Reservation::update($id, $data);
+                try {
+                    if (isset($data['statut']) && $data['statut'] === 'annulee') {
+                        Reservation::cancel($id);
+                    } else {
+                        Reservation::update($id, $data);
+                    }
+                    echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
+                } catch (\InvalidArgumentException $e) {
+                    http_response_code(422);
+                    echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
                 }
-                echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
                 break;
 
             case 'DELETE':
