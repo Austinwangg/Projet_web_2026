@@ -25,6 +25,11 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
           {user?.role === 'admin' && (
             <a onClick={() => navigate('admin')} style={{ cursor: 'pointer' }} className={screen === 'admin' ? 'active' : ''}>Admin</a>
           )}
+          {/* TEST_PERSONS */}
+          <a onClick={() => navigate('persons')} style={{ cursor: 'pointer', color: 'var(--ink-faint)', fontSize: 12 }} className={screen === 'persons' ? 'active' : ''}>
+            [TEST]
+          </a>
+          {/* END TEST_PERSONS */}
         </nav>
         <div className="vv-header-actions">
           <div className="lang-switch">

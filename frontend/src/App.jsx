@@ -12,6 +12,9 @@ import ScreenCart from './screens/ScreenCart.jsx';
 import ScreenPayment from './screens/ScreenPayment.jsx';
 import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
+// TEST_PERSONS
+import ScreenPersons from './screens/ScreenPersons.jsx';
+// END TEST_PERSONS
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -116,6 +119,10 @@ export default function App() {
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
       )}
+      {/* TEST_PERSONS */}
+      {screen === 'persons' && <ScreenPersons navigate={navigate} />}
+      {/* END TEST_PERSONS */}
+
       {screen === 'admin' && user?.role !== 'admin' && (
         <main className="container" style={{ paddingTop: 80, textAlign: 'center' }}>
           <p className="serif" style={{ fontSize: 32 }}>Accès refusé</p>
