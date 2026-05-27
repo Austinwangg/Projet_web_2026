@@ -39,10 +39,19 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
       const hebergementId  = hotelItem?.hebergementDbId || null;
       const activiteIds    = actItems.map(i => i.activiteDbId).filter(Boolean);
 
-      // Build dates from search state or reasonable defaults
-      const fmt = (d) => (d instanceof Date ? d : new Date(d)).toISOString().split('T')[0];
-      const dateDepart = search?.dates?.start ? fmt(search.dates.start) : fmt(Date.now() + 7  * 86400000);
-      const dateRetour = search?.dates?.end   ? fmt(search.dates.end)   : fmt(Date.now() + 14 * 86400000);
+      // Build dates — priorité aux dates de l'hôtel dans le panier (déjà calculées correctement dans ScreenDetail)
+      const fmtLocal = (d) => {
+        const dt = d instanceof Date ? d : new Date(d);
+        const y  = dt.getFullYear();
+        const m  = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const hotelDates = cart.find(i => i.kind === 'hotel' && i.dateDepart);
+      const dateDepart = hotelDates?.dateDepart
+        ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
+      const dateRetour = hotelDates?.dateRetour
+        ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
 
       const travelers = search?.travelers
         ? (search.travelers.adult || 0) + (search.travelers.student || 0) + (search.travelers.child || 0)

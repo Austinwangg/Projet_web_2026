@@ -37,3 +37,15 @@ export const updateDestination = (id, data, role = 'admin') =>
  */
 export const deleteDestination = (id, role = 'admin') =>
   api.delete(`/destinations?id=${id}`, { headers: { 'X-User-Role': role } });
+
+// ── Hébergements ────────────────────────────────────────────────────────────
+export const createHebergement = (data) => api.post('/hebergements', data);
+export const deleteHebergement = (id)   => api.delete(`/hebergements?id=${id}`);
+
+// ── Transports ──────────────────────────────────────────────────────────────
+export const createTransport = (data) => api.post('/transports', data);
+export const deleteTransport = (id)   => api.delete(`/transports?id=${id}`);
+
+// ── Activités ───────────────────────────────────────────────────────────────
+export const createActivite = (data) => api.post('/activites', data);
+export const deleteActivite = (id)   => api.delete(`/activites?id=${id}`);

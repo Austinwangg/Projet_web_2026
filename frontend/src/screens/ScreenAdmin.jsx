@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUsers, setUserRole, deleteUser, createDestination, deleteDestination } from '../services/adminService.js';
+import { getUsers, setUserRole, deleteUser, createDestination, deleteDestination, createHebergement, createTransport, createActivite } from '../services/adminService.js';
 import { getDestinations } from '../services/destinationsService.js';
 
 const TYPES = ['ville', 'culture', 'aventure', 'plage', 'montagne'];
@@ -9,6 +9,10 @@ const EMPTY_OFFER = {
   duree_jours: 7, prix_depuis: 0, note: 4.5, nb_avis: 0,
   tag_fr: '', tag_en: '', resume_fr: '', resume_en: '', image_url: '',
 };
+
+const EMPTY_HEBERG    = { nom: '', quartier: '', type: 'hotel', prix_nuit: '', nb_etoiles: 4, avantage_fr: '', avantage_en: '' };
+const EMPTY_TRANSPORT = { type: 'avion', compagnie: '', depart: '', arrivee: '', duree: '', horaire: '', prix: '' };
+const EMPTY_ACTIVITE  = { nom_fr: '', nom_en: '', categorie: '', duree: '', prix: '0', description_fr: '', description_en: '' };
 
 export default function ScreenAdmin({ T, lang, user }) {
   const [adminTab, setAdminTab] = useState('dashboard');
@@ -23,11 +27,27 @@ export default function ScreenAdmin({ T, lang, user }) {
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersMsg, setOffersMsg] = useState('');
 
-  // ── Modal ajout offre
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY_OFFER });
+  // ── Modal ajout offre — wizard 4 étapes
+  const [showModal, setShowModal]         = useState(false);
+  const [wizardStep, setWizardStep]       = useState(1); // 1=destination 2=hébergements 3=transports 4=activités
+  const [createdDestId, setCreatedDestId] = useState(null);
+  const [form, setForm]                   = useState({ ...EMPTY_OFFER });
   const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError]         = useState('');
+
+  const [hebergements, setHebergements] = useState([{ ...EMPTY_HEBERG }]);
+  const [transports, setTransports]     = useState([{ ...EMPTY_TRANSPORT }]);
+  const [activites, setActivites]       = useState([{ ...EMPTY_ACTIVITE }]);
+
+  const resetWizard = () => {
+    setWizardStep(1);
+    setCreatedDestId(null);
+    setForm({ ...EMPTY_OFFER });
+    setHebergements([{ ...EMPTY_HEBERG }]);
+    setTransports([{ ...EMPTY_TRANSPORT }]);
+    setActivites([{ ...EMPTY_ACTIVITE }]);
+    setFormError('');
+  };
 
   // ── Chargement utilisateurs
   useEffect(() => {
@@ -85,50 +105,81 @@ export default function ScreenAdmin({ T, lang, user }) {
     }
   };
 
-  // ── Ajout d'une offre
-  const handleFormChange = (key, value) => {
-    setForm(prev => ({ ...prev, [key]: value }));
-  };
+  // ── Wizard : helpers listes dynamiques
+  const handleFormChange = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+  const handleTypeToggle = (t) => setForm(prev => {
+    const arr = prev.types_json.includes(t) ? prev.types_json.filter(x => x !== t) : [...prev.types_json, t];
+    return { ...prev, types_json: arr, type: arr[0] || 'ville' };
+  });
 
-  const handleTypeToggle = (t) => {
-    setForm(prev => {
-      const arr = prev.types_json.includes(t) ? prev.types_json.filter(x => x !== t) : [...prev.types_json, t];
-      return { ...prev, types_json: arr, type: arr[0] || 'ville' };
-    });
-  };
+  const updateItem = (setter, idx, key, value) =>
+    setter(prev => prev.map((it, i) => i === idx ? { ...it, [key]: value } : it));
+  const addItem    = (setter, empty) => setter(prev => [...prev, { ...empty }]);
+  const removeItem = (setter, idx)   => setter(prev => prev.filter((_, i) => i !== idx));
 
-  const handleSubmitOffer = async (e) => {
+  // Étape 1 — créer la destination
+  const handleSubmitDestination = async (e) => {
     e.preventDefault();
     setFormError('');
-    if (!form.ville.trim()) { setFormError(lang === 'fr' ? 'Le nom de la ville est obligatoire.' : 'City name is required.'); return; }
+    if (!form.ville.trim())   { setFormError(lang === 'fr' ? 'La ville est obligatoire.' : 'City is required.'); return; }
     if (!form.pays_fr.trim()) { setFormError(lang === 'fr' ? 'Le pays (FR) est obligatoire.' : 'Country (FR) is required.'); return; }
     if (!form.pays_en.trim()) { setFormError(lang === 'fr' ? 'Le pays (EN) est obligatoire.' : 'Country (EN) is required.'); return; }
-    if (form.prix_depuis <= 0) { setFormError(lang === 'fr' ? 'Le prix doit être supérieur à 0.' : 'Price must be > 0.'); return; }
-
+    if (form.prix_depuis <= 0){ setFormError(lang === 'fr' ? 'Le prix doit être > 0.' : 'Price must be > 0.'); return; }
     setFormSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        prix_depuis: parseInt(form.prix_depuis) || 0,
-        duree_jours: parseInt(form.duree_jours) || 7,
-        note: parseFloat(form.note) || 4.5,
-        nb_avis: parseInt(form.nb_avis) || 0,
-        types_json: form.types_json,
-      };
+      const payload = { ...form, prix_depuis: parseInt(form.prix_depuis) || 0, duree_jours: parseInt(form.duree_jours) || 7, note: parseFloat(form.note) || 4.5, nb_avis: parseInt(form.nb_avis) || 0 };
       const res = await createDestination(payload, user?.role || 'admin');
-      const newId = res.data?.id;
-      // Recharger la liste pour voir le nouveau dans le catalogue
+      setCreatedDestId(res.data?.id);
+      setWizardStep(2);
+    } catch (err) {
+      setFormError(err?.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la création.' : 'Error creating destination.'));
+    } finally { setFormSubmitting(false); }
+  };
+
+  // Étape 2 — hébergements
+  const handleSubmitHebergements = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    const valid = hebergements.filter(h => h.nom.trim() && parseFloat(h.prix_nuit) > 0);
+    if (valid.length === 0) { setWizardStep(3); return; } // skip si vide
+    setFormSubmitting(true);
+    try {
+      await Promise.all(valid.map(h => createHebergement({ ...h, destination_id: createdDestId, prix_nuit: parseFloat(h.prix_nuit) })));
+      setWizardStep(3);
+    } catch { setFormError(lang === 'fr' ? 'Erreur hébergement.' : 'Accommodation error.'); }
+    finally { setFormSubmitting(false); }
+  };
+
+  // Étape 3 — transports
+  const handleSubmitTransports = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    const valid = transports.filter(t => t.depart.trim() && t.arrivee.trim() && parseFloat(t.prix) > 0);
+    if (valid.length === 0) { setWizardStep(4); return; }
+    setFormSubmitting(true);
+    try {
+      await Promise.all(valid.map(t => createTransport({ ...t, destination_id: createdDestId, prix: parseFloat(t.prix) })));
+      setWizardStep(4);
+    } catch { setFormError(lang === 'fr' ? 'Erreur transport.' : 'Transport error.'); }
+    finally { setFormSubmitting(false); }
+  };
+
+  // Étape 4 — activités + finalisation
+  const handleSubmitActivites = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    const valid = activites.filter(a => a.nom_fr.trim() && a.nom_en.trim());
+    setFormSubmitting(true);
+    try {
+      if (valid.length > 0)
+        await Promise.all(valid.map(a => createActivite({ ...a, destination_id: createdDestId, prix: parseFloat(a.prix) || 0 })));
       const fresh = await getDestinations();
       setOffers(Array.isArray(fresh.data) ? fresh.data : []);
-      setOffersMsg(lang === 'fr' ? `Destination "${form.ville}" ajoutée (ID ${newId}).` : `Destination "${form.ville}" added (ID ${newId}).`);
+      setOffersMsg(lang === 'fr' ? `Destination "${form.ville}" créée avec succès !` : `Destination "${form.ville}" created successfully!`);
       setShowModal(false);
-      setForm({ ...EMPTY_OFFER });
-    } catch (e) {
-      const msg = e?.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la création.' : 'Error creating destination.');
-      setFormError(msg);
-    } finally {
-      setFormSubmitting(false);
-    }
+      resetWizard();
+    } catch { setFormError(lang === 'fr' ? 'Erreur activité.' : 'Activity error.'); }
+    finally { setFormSubmitting(false); }
   };
 
   // ── KPIs & graphiques (statiques)
@@ -338,7 +389,7 @@ export default function ScreenAdmin({ T, lang, user }) {
                 <span className="eyebrow">{lang === 'fr' ? 'OFFRES' : 'OFFERS'}</span>
                 <h3 className="serif mt-4" style={{ fontSize: 22 }}>{T.admin.offersTitle}</h3>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => { setShowModal(true); setFormError(''); setForm({ ...EMPTY_OFFER }); }}>
+              <button className="btn btn-primary btn-sm" onClick={() => { resetWizard(); setShowModal(true); }}>
                 {T.admin.addOffer}
               </button>
             </div>
@@ -534,17 +585,32 @@ export default function ScreenAdmin({ T, lang, user }) {
         </>
       )}
 
-      {/* ── MODAL AJOUT OFFRE */}
+      {/* ── MODAL WIZARD AJOUT OFFRE */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'grid', placeItems: 'center', padding: 24 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
-          <div className="card-tile" style={{ width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 32, position: 'relative' }}>
-            <button className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 16, right: 16 }} onClick={() => setShowModal(false)}>✕</button>
+          onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); resetWizard(); } }}>
+          <div className="card-tile" style={{ width: '100%', maxWidth: 680, maxHeight: '92vh', overflowY: 'auto', padding: 32, position: 'relative' }}>
+            <button className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 16, right: 16 }} onClick={() => { setShowModal(false); resetWizard(); }}>✕</button>
 
-            <span className="eyebrow">{lang === 'fr' ? 'NOUVELLE OFFRE' : 'NEW OFFER'}</span>
-            <h3 className="serif mt-4 mb-24" style={{ fontSize: 24 }}>
-              {lang === 'fr' ? 'Ajouter une destination au catalogue' : 'Add a destination to catalog'}
-            </h3>
+            {/* Indicateur d'étapes */}
+            <div className="row gap-8 mb-24" style={{ alignItems: 'center' }}>
+              {[
+                lang === 'fr' ? 'Destination' : 'Destination',
+                lang === 'fr' ? 'Hébergements' : 'Accommodations',
+                'Transports',
+                lang === 'fr' ? 'Activités' : 'Activities',
+              ].map((label, i) => (
+                <div key={i} className="row gap-6" style={{ alignItems: 'center' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 11, fontFamily: 'JetBrains Mono', fontWeight: 700,
+                    background: wizardStep > i + 1 ? 'var(--ok)' : wizardStep === i + 1 ? 'var(--ink)' : 'var(--surface-2)',
+                    color: wizardStep >= i + 1 ? 'white' : 'var(--ink-faint)' }}>
+                    {wizardStep > i + 1 ? '✓' : i + 1}
+                  </div>
+                  <span style={{ fontSize: 12, color: wizardStep === i + 1 ? 'var(--ink)' : 'var(--ink-faint)', fontWeight: wizardStep === i + 1 ? 600 : 400 }}>{label}</span>
+                  {i < 3 && <span style={{ color: 'var(--line-soft)', fontSize: 14, margin: '0 2px' }}>›</span>}
+                </div>
+              ))}
+            </div>
 
             {formError && (
               <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--danger-soft, #fee)', color: 'var(--danger)', fontSize: 13, marginBottom: 16 }}>
@@ -552,104 +618,256 @@ export default function ScreenAdmin({ T, lang, user }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmitOffer} className="col gap-16">
-              <div className="grid grid-2 gap-16">
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'VILLE *' : 'CITY *'}
-                  </label>
-                  <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.ville} onChange={e => handleFormChange('ville', e.target.value)} placeholder={lang === 'fr' ? 'Ex: Tokyo' : 'Ex: Tokyo'} required />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'PAYS (FR) *' : 'COUNTRY (FR) *'}
-                  </label>
-                  <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.pays_fr} onChange={e => handleFormChange('pays_fr', e.target.value)} placeholder="Japon" required />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'PAYS (EN) *' : 'COUNTRY (EN) *'}
-                  </label>
-                  <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.pays_en} onChange={e => handleFormChange('pays_en', e.target.value)} placeholder="Japan" required />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'PRIX DEPUIS (€) *' : 'PRICE FROM (€) *'}
-                  </label>
-                  <input type="number" min="1" className="input" style={{ width: '100%', marginTop: 4 }} value={form.prix_depuis} onChange={e => handleFormChange('prix_depuis', e.target.value)} required />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'DURÉE (JOURS)' : 'DURATION (DAYS)'}
-                  </label>
-                  <input type="number" min="1" max="30" className="input" style={{ width: '100%', marginTop: 4 }} value={form.duree_jours} onChange={e => handleFormChange('duree_jours', e.target.value)} />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {lang === 'fr' ? 'NOTE (/5)' : 'RATING (/5)'}
-                  </label>
-                  <input type="number" min="1" max="5" step="0.1" className="input" style={{ width: '100%', marginTop: 4 }} value={form.note} onChange={e => handleFormChange('note', e.target.value)} />
-                </div>
-              </div>
+            {/* ── ÉTAPE 1 : Destination */}
+            {wizardStep === 1 && (
+              <>
+                <span className="eyebrow">{lang === 'fr' ? 'ÉTAPE 1 / 4' : 'STEP 1 / 4'}</span>
+                <h3 className="serif mt-4 mb-24" style={{ fontSize: 22 }}>{lang === 'fr' ? 'Informations de la destination' : 'Destination information'}</h3>
+                <form onSubmit={handleSubmitDestination} className="col gap-16">
+                  <div className="grid grid-2 gap-16">
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'VILLE *' : 'CITY *'}</label>
+                      <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.ville} onChange={e => handleFormChange('ville', e.target.value)} placeholder="Tokyo" required />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PAYS (FR) *' : 'COUNTRY (FR) *'}</label>
+                      <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.pays_fr} onChange={e => handleFormChange('pays_fr', e.target.value)} placeholder="Japon" required />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PAYS (EN) *' : 'COUNTRY (EN) *'}</label>
+                      <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.pays_en} onChange={e => handleFormChange('pays_en', e.target.value)} placeholder="Japan" required />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PRIX DEPUIS (€) *' : 'PRICE FROM (€) *'}</label>
+                      <input type="number" min="1" className="input" style={{ width: '100%', marginTop: 4 }} value={form.prix_depuis} onChange={e => handleFormChange('prix_depuis', e.target.value)} required />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DURÉE (JOURS)' : 'DURATION (DAYS)'}</label>
+                      <input type="number" min="1" max="30" className="input" style={{ width: '100%', marginTop: 4 }} value={form.duree_jours} onChange={e => handleFormChange('duree_jours', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'NOTE (/5)' : 'RATING (/5)'}</label>
+                      <input type="number" min="1" max="5" step="0.1" className="input" style={{ width: '100%', marginTop: 4 }} value={form.note} onChange={e => handleFormChange('note', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'NB AVIS' : 'NB REVIEWS'}</label>
+                      <input type="number" min="0" className="input" style={{ width: '100%', marginTop: 4 }} value={form.nb_avis} onChange={e => handleFormChange('nb_avis', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'TAG (FR)' : 'TAG (FR)'}</label>
+                      <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.tag_fr} onChange={e => handleFormChange('tag_fr', e.target.value)} placeholder="Tendance…" />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'TAG (EN)' : 'TAG (EN)'}</label>
+                      <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.tag_en} onChange={e => handleFormChange('tag_en', e.target.value)} placeholder="Trending…" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>{lang === 'fr' ? 'TYPE(S)' : 'TYPE(S)'}</label>
+                    <div className="row gap-8" style={{ flexWrap: 'wrap' }}>
+                      {TYPES.map(t => (
+                        <label key={t} className={`check ${form.types_json.includes(t) ? 'checked' : ''}`} style={{ marginBottom: 0 }}>
+                          <input type="checkbox" checked={form.types_json.includes(t)} onChange={() => handleTypeToggle(t)} />{t}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DESCRIPTION (FR)' : 'DESCRIPTION (FR)'}</label>
+                    <textarea className="input" rows="2" style={{ width: '100%', marginTop: 4, resize: 'vertical' }} value={form.resume_fr} onChange={e => handleFormChange('resume_fr', e.target.value)} placeholder={lang === 'fr' ? 'Courte description…' : 'Short description…'} />
+                  </div>
+                  <div>
+                    <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DESCRIPTION (EN)' : 'DESCRIPTION (EN)'}</label>
+                    <textarea className="input" rows="2" style={{ width: '100%', marginTop: 4, resize: 'vertical' }} value={form.resume_en} onChange={e => handleFormChange('resume_en', e.target.value)} placeholder="Short description…" />
+                  </div>
+                  <div>
+                    <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? "URL D'IMAGE" : 'IMAGE URL'}</label>
+                    <input type="url" className="input" style={{ width: '100%', marginTop: 4 }} value={form.image_url} onChange={e => handleFormChange('image_url', e.target.value)} placeholder="https://images.unsplash.com/photo-…" />
+                  </div>
+                  <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button type="button" className="btn btn-outline" onClick={() => { setShowModal(false); resetWizard(); }}>{lang === 'fr' ? 'Annuler' : 'Cancel'}</button>
+                    <button type="submit" className="btn btn-primary" disabled={formSubmitting}>
+                      {formSubmitting ? '…' : (lang === 'fr' ? 'Suivant → Hébergements' : 'Next → Accommodations')}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
 
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
-                  {lang === 'fr' ? 'TYPE(S) DE SÉJOUR' : 'STAY TYPE(S)'}
-                </label>
-                <div className="row gap-8" style={{ flexWrap: 'wrap' }}>
-                  {TYPES.map(t => (
-                    <label key={t} className={`check ${form.types_json.includes(t) ? 'checked' : ''}`} style={{ marginBottom: 0 }}>
-                      <input type="checkbox" checked={form.types_json.includes(t)} onChange={() => handleTypeToggle(t)} />
-                      {t}
-                    </label>
+            {/* ── ÉTAPE 2 : Hébergements */}
+            {wizardStep === 2 && (
+              <>
+                <span className="eyebrow">{lang === 'fr' ? 'ÉTAPE 2 / 4' : 'STEP 2 / 4'}</span>
+                <h3 className="serif mt-4 mb-8" style={{ fontSize: 22 }}>{lang === 'fr' ? 'Hébergements' : 'Accommodations'}</h3>
+                <p className="muted mb-20" style={{ fontSize: 13 }}>{lang === 'fr' ? 'Optionnel — laissez vide pour passer.' : 'Optional — leave empty to skip.'}</p>
+                <form onSubmit={handleSubmitHebergements} className="col gap-20">
+                  {hebergements.map((h, idx) => (
+                    <div key={idx} className="card-tile" style={{ padding: 16, position: 'relative' }}>
+                      {hebergements.length > 1 && (
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 8, right: 8, color: 'var(--danger)' }} onClick={() => removeItem(setHebergements, idx)}>✕</button>
+                      )}
+                      <div className="mono mb-8" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? `HÉBERGEMENT ${idx + 1}` : `ACCOMMODATION ${idx + 1}`}</div>
+                      <div className="grid grid-2 gap-12">
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'NOM' : 'NAME'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={h.nom} onChange={e => updateItem(setHebergements, idx, 'nom', e.target.value)} placeholder="Hotel Sakura" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'QUARTIER' : 'AREA'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={h.quartier} onChange={e => updateItem(setHebergements, idx, 'quartier', e.target.value)} placeholder="Shibuya" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>TYPE</label>
+                          <select className="input" style={{ width: '100%', marginTop: 4 }} value={h.type} onChange={e => updateItem(setHebergements, idx, 'type', e.target.value)}>
+                            {['hotel','villa','auberge','appartement'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PRIX / NUIT (€)' : 'PRICE / NIGHT (€)'}</label>
+                          <input type="number" min="1" className="input" style={{ width: '100%', marginTop: 4 }} value={h.prix_nuit} onChange={e => updateItem(setHebergements, idx, 'prix_nuit', e.target.value)} placeholder="120" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'ÉTOILES' : 'STARS'}</label>
+                          <input type="number" min="1" max="5" className="input" style={{ width: '100%', marginTop: 4 }} value={h.nb_etoiles} onChange={e => updateItem(setHebergements, idx, 'nb_etoiles', e.target.value)} />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'AVANTAGE (FR)' : 'PERK (FR)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={h.avantage_fr} onChange={e => updateItem(setHebergements, idx, 'avantage_fr', e.target.value)} placeholder="Petit-déjeuner inclus" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'AVANTAGE (EN)' : 'PERK (EN)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={h.avantage_en} onChange={e => updateItem(setHebergements, idx, 'avantage_en', e.target.value)} placeholder="Breakfast included" />
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </div>
-              </div>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => addItem(setHebergements, EMPTY_HEBERG)}>
+                    + {lang === 'fr' ? 'Ajouter un hébergement' : 'Add accommodation'}
+                  </button>
+                  <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button type="submit" className="btn btn-primary" disabled={formSubmitting}>
+                      {formSubmitting ? '…' : (lang === 'fr' ? 'Suivant → Transports' : 'Next → Transports')}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
 
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  {lang === 'fr' ? 'TAG (FR)' : 'TAG (FR)'}
-                </label>
-                <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.tag_fr} onChange={e => handleFormChange('tag_fr', e.target.value)} placeholder="Nouveau, Tendance…" />
-              </div>
+            {/* ── ÉTAPE 3 : Transports */}
+            {wizardStep === 3 && (
+              <>
+                <span className="eyebrow">{lang === 'fr' ? 'ÉTAPE 3 / 4' : 'STEP 3 / 4'}</span>
+                <h3 className="serif mt-4 mb-8" style={{ fontSize: 22 }}>Transports</h3>
+                <p className="muted mb-20" style={{ fontSize: 13 }}>{lang === 'fr' ? 'Optionnel — laissez vide pour passer.' : 'Optional — leave empty to skip.'}</p>
+                <form onSubmit={handleSubmitTransports} className="col gap-20">
+                  {transports.map((t, idx) => (
+                    <div key={idx} className="card-tile" style={{ padding: 16, position: 'relative' }}>
+                      {transports.length > 1 && (
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 8, right: 8, color: 'var(--danger)' }} onClick={() => removeItem(setTransports, idx)}>✕</button>
+                      )}
+                      <div className="mono mb-8" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{`TRANSPORT ${idx + 1}`}</div>
+                      <div className="grid grid-2 gap-12">
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>TYPE</label>
+                          <select className="input" style={{ width: '100%', marginTop: 4 }} value={t.type} onChange={e => updateItem(setTransports, idx, 'type', e.target.value)}>
+                            {['avion','train','bus','voiture'].map(tp => <option key={tp} value={tp}>{tp}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'COMPAGNIE' : 'COMPANY'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={t.compagnie} onChange={e => updateItem(setTransports, idx, 'compagnie', e.target.value)} placeholder="Air France" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DÉPART' : 'DEPARTURE'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={t.depart} onChange={e => updateItem(setTransports, idx, 'depart', e.target.value)} placeholder="Paris CDG" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'ARRIVÉE' : 'ARRIVAL'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={t.arrivee} onChange={e => updateItem(setTransports, idx, 'arrivee', e.target.value)} placeholder="Tokyo HND" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DURÉE VOL' : 'FLIGHT DURATION'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={t.duree} onChange={e => updateItem(setTransports, idx, 'duree', e.target.value)} placeholder="12h30" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'HORAIRE' : 'SCHEDULE'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={t.horaire} onChange={e => updateItem(setTransports, idx, 'horaire', e.target.value)} placeholder="09:00 → 21:30" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PRIX / PERS. (€)' : 'PRICE / PERSON (€)'}</label>
+                          <input type="number" min="1" className="input" style={{ width: '100%', marginTop: 4 }} value={t.prix} onChange={e => updateItem(setTransports, idx, 'prix', e.target.value)} placeholder="450" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => addItem(setTransports, EMPTY_TRANSPORT)}>
+                    + {lang === 'fr' ? 'Ajouter un transport' : 'Add transport'}
+                  </button>
+                  <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button type="submit" className="btn btn-primary" disabled={formSubmitting}>
+                      {formSubmitting ? '…' : (lang === 'fr' ? 'Suivant → Activités' : 'Next → Activities')}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
 
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  {lang === 'fr' ? 'TAG (EN)' : 'TAG (EN)'}
-                </label>
-                <input className="input" style={{ width: '100%', marginTop: 4 }} value={form.tag_en} onChange={e => handleFormChange('tag_en', e.target.value)} placeholder="New, Trending…" />
-              </div>
-
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  {lang === 'fr' ? 'DESCRIPTION (FR)' : 'DESCRIPTION (FR)'}
-                </label>
-                <textarea className="input" rows="2" style={{ width: '100%', marginTop: 4, resize: 'vertical' }} value={form.resume_fr} onChange={e => handleFormChange('resume_fr', e.target.value)} placeholder={lang === 'fr' ? 'Courte description…' : 'Short description…'} />
-              </div>
-
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  {lang === 'fr' ? 'DESCRIPTION (EN)' : 'DESCRIPTION (EN)'}
-                </label>
-                <textarea className="input" rows="2" style={{ width: '100%', marginTop: 4, resize: 'vertical' }} value={form.resume_en} onChange={e => handleFormChange('resume_en', e.target.value)} placeholder="Short description…" />
-              </div>
-
-              <div>
-                <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  {lang === 'fr' ? "URL D'IMAGE (Unsplash…)" : 'IMAGE URL (Unsplash…)'}
-                </label>
-                <input type="url" className="input" style={{ width: '100%', marginTop: 4 }} value={form.image_url} onChange={e => handleFormChange('image_url', e.target.value)} placeholder="https://images.unsplash.com/photo-…" />
-              </div>
-
-              <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={formSubmitting}>
-                  {formSubmitting ? (lang === 'fr' ? 'Création…' : 'Creating…') : (lang === 'fr' ? '+ Créer la destination' : '+ Create destination')}
-                </button>
-              </div>
-            </form>
+            {/* ── ÉTAPE 4 : Activités */}
+            {wizardStep === 4 && (
+              <>
+                <span className="eyebrow">{lang === 'fr' ? 'ÉTAPE 4 / 4' : 'STEP 4 / 4'}</span>
+                <h3 className="serif mt-4 mb-8" style={{ fontSize: 22 }}>{lang === 'fr' ? 'Activités' : 'Activities'}</h3>
+                <p className="muted mb-20" style={{ fontSize: 13 }}>{lang === 'fr' ? 'Optionnel — laissez vide pour terminer.' : 'Optional — leave empty to finish.'}</p>
+                <form onSubmit={handleSubmitActivites} className="col gap-20">
+                  {activites.map((a, idx) => (
+                    <div key={idx} className="card-tile" style={{ padding: 16, position: 'relative' }}>
+                      {activites.length > 1 && (
+                        <button type="button" className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 8, right: 8, color: 'var(--danger)' }} onClick={() => removeItem(setActivites, idx)}>✕</button>
+                      )}
+                      <div className="mono mb-8" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? `ACTIVITÉ ${idx + 1}` : `ACTIVITY ${idx + 1}`}</div>
+                      <div className="grid grid-2 gap-12">
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'NOM (FR)' : 'NAME (FR)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.nom_fr} onChange={e => updateItem(setActivites, idx, 'nom_fr', e.target.value)} placeholder="Visite du temple Senso-ji" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'NOM (EN)' : 'NAME (EN)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.nom_en} onChange={e => updateItem(setActivites, idx, 'nom_en', e.target.value)} placeholder="Senso-ji Temple Visit" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'CATÉGORIE' : 'CATEGORY'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.categorie} onChange={e => updateItem(setActivites, idx, 'categorie', e.target.value)} placeholder="Culture, Sport…" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DURÉE' : 'DURATION'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.duree} onChange={e => updateItem(setActivites, idx, 'duree', e.target.value)} placeholder="3h" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'PRIX / PERS. (€)' : 'PRICE / PERSON (€)'}</label>
+                          <input type="number" min="0" className="input" style={{ width: '100%', marginTop: 4 }} value={a.prix} onChange={e => updateItem(setActivites, idx, 'prix', e.target.value)} placeholder="0" />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DESCRIPTION (FR)' : 'DESCRIPTION (FR)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.description_fr} onChange={e => updateItem(setActivites, idx, 'description_fr', e.target.value)} placeholder={lang === 'fr' ? 'Courte description…' : 'Short description…'} />
+                        </div>
+                        <div>
+                          <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>{lang === 'fr' ? 'DESCRIPTION (EN)' : 'DESCRIPTION (EN)'}</label>
+                          <input className="input" style={{ width: '100%', marginTop: 4 }} value={a.description_en} onChange={e => updateItem(setActivites, idx, 'description_en', e.target.value)} placeholder="Short description…" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => addItem(setActivites, EMPTY_ACTIVITE)}>
+                    + {lang === 'fr' ? 'Ajouter une activité' : 'Add activity'}
+                  </button>
+                  <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button type="submit" className="btn btn-primary" disabled={formSubmitting}>
+                      {formSubmitting ? '…' : (lang === 'fr' ? '✓ Terminer la création' : '✓ Finish creation')}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
