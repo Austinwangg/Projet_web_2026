@@ -1,0 +1,56 @@
+erDiagram
+    DESTINATION {
+        int id_destination PK
+        varchar slug
+        varchar nom
+        varchar pays
+        varchar region
+        text description
+        varchar photo_principale
+        enum categorie
+        decimal note_moyenne
+        decimal prix_moyen
+        boolean actif
+    }
+    TRANSPORT {
+        int id_transport PK
+        int id_destination FK
+        enum type
+        varchar compagnie
+        varchar origine
+        varchar destination_finale
+        datetime date_depart
+        datetime date_arrivee
+        decimal prix_par_personne
+        int places_disponibles
+        int places_totales
+    }
+    HEBERGEMENT {
+        int id_hebergement PK
+        int id_destination FK
+        varchar nom
+        enum type
+        text description
+        varchar adresse
+        int etoiles
+        decimal prix_nuit
+        boolean connexion_wifi
+        decimal note_moyenne
+        boolean annulation_gratuite
+    }
+    ACTIVITE {
+        int id_activite PK
+        int id_destination FK
+        varchar nom
+        text description
+        enum categorie
+        decimal duree_heures
+        decimal prix_par_personne
+        int capacite_max
+        datetime date_heure
+        int places_restantes
+    }
+
+    DESTINATION ||--o{ TRANSPORT : "propose (1,N)"
+    DESTINATION ||--o{ HEBERGEMENT : "dispose (1,N)"
+    DESTINATION ||--o{ ACTIVITE : "offre (1,N)"

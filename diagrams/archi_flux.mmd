@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor U as Utilisateur
+    participant FE as Frontend React
+    participant API as API PHP REST
+    participant DB as MySQL
+
+    Note over U,DB: Parcours de Réservation Complet
+
+    U->>FE: Saisit destination + dates + voyageurs
+    FE->>API: GET /destinations?search=...
+    API->>DB: SELECT destinations WHERE actif=1
+    DB-->>API: Liste destinations
+    API-->>FE: JSON destinations
+    FE-->>U: Affiche résultats (ScreenResults)
+
+    U->>FE: Clique sur une destination
+    FE->>API: GET /destinations/{slug}
+    API->>DB: SELECT + JOIN transports, hebergements, activites
+    DB-->>API: Données complètes
+    API-->>FE: JSON détail
+    FE-->>U: ScreenDetail (onglets Transport / Héberg. / Activités)
+
+    U->>FE: Sélectionne transport + hébergement + activités
+    FE->>FE: Stockage panier (localStorage)
+    FE-->>U: ScreenCart (récapitulatif)
+
+    U->>FE: Confirme et paie
+    FE->>API: POST /reservations {dates, nb_voyageurs, activite_ids}
+    API->>DB: BEGIN TRANSACTION
+    API->>DB: Vérifie stocks (places_dispo, nb_chambres_dispo)
+    API->>DB: INSERT reservation (ref VV-XXXXXXX)
+    API->>DB: INSERT reservation_activites
+    API->>DB: UPDATE transports SET places_dispo - nb_voyageurs
+    API->>DB: UPDATE hebergements SET nb_chambres_dispo - 1
+    API->>DB: UPDATE activites SET places_restantes - nb_voyageurs
+    API->>DB: COMMIT
+    DB-->>API: OK
+    API->>DB: INSERT notification (confirmation)
+    API-->>FE: JSON {reservation, reference}
+    FE-->>U: ScreenAccount (confirmation + notif)

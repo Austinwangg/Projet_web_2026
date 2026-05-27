@@ -1,0 +1,68 @@
+erDiagram
+    utilisateurs {
+        INT id PK
+        VARCHAR email "UNIQUE"
+        ENUM role "user admin"
+    }
+    notifications {
+        INT id PK
+        INT utilisateur_id FK
+        ENUM type "confirmation rappel promo alerte"
+        VARCHAR titre
+        TEXT message
+        BOOLEAN lu
+        DATETIME created_at
+    }
+    sessions {
+        INT id PK
+        INT utilisateur_id FK
+        VARCHAR token "UNIQUE NOT NULL"
+        DATETIME expire_le
+        VARCHAR ip_adresse
+        DATETIME created_at
+    }
+    paniers {
+        INT id PK
+        INT utilisateur_id FK
+        DATETIME date_mise_a_jour
+    }
+    elements_panier {
+        INT id PK
+        INT panier_id FK
+        ENUM type_element "transport hebergement activite"
+        INT element_ref_id
+        INT quantite
+        DECIMAL prix_unitaire
+        DATETIME date_ajout
+    }
+    favoris {
+        INT id PK
+        INT utilisateur_id FK
+        ENUM type_element "destination transport hebergement activite"
+        INT element_ref_id
+        DATETIME date_ajout
+    }
+    avis {
+        INT id PK
+        INT utilisateur_id FK
+        ENUM type_cible "destination transport hebergement activite"
+        INT id_cible
+        INT note "CHECK 1-5"
+        TEXT commentaire
+        DATETIME date_avis
+    }
+    voyageurs_sejour {
+        INT id PK
+        INT reservation_id FK
+        INT utilisateur_id FK
+        VARCHAR refe_sejour
+        DATETIME date_ajout
+    }
+
+    utilisateurs ||--o{ notifications : "utilisateur_id FK"
+    utilisateurs ||--o{ sessions : "utilisateur_id FK"
+    utilisateurs ||--|| paniers : "utilisateur_id FK"
+    paniers ||--o{ elements_panier : "panier_id FK"
+    utilisateurs ||--o{ favoris : "utilisateur_id FK"
+    utilisateurs ||--o{ avis : "utilisateur_id FK"
+    utilisateurs ||--o{ voyageurs_sejour : "utilisateur_id FK"

@@ -1,0 +1,45 @@
+graph TD
+    subgraph VISITEUR["👤 VISITEUR (Non authentifié)"]
+        V1["Consulter les destinations"]
+        V2["Rechercher et filtrer"]
+        V3["Voir les détails d'une offre"]
+        V4["S'inscrire / Se connecter"]
+    end
+
+    subgraph USER["🙋 UTILISATEUR (role: user)"]
+        U1["Tout ce que peut faire le Visiteur"]
+        U2["Réserver transport + hébergement + activités"]
+        U3["Gérer son panier"]
+        U4["Créer et gérer des itinéraires"]
+        U5["Consulter son espace compte"]
+        U6["Modifier son profil"]
+        U7["Recevoir des notifications"]
+        U8["Ajouter aux favoris"]
+        U9["Déposer des avis (1-5 étoiles)"]
+        U10["Annuler une réservation"]
+    end
+
+    subgraph ADMIN["🔐 ADMINISTRATEUR (role: admin)"]
+        A1["Tout ce que peut faire l'Utilisateur"]
+        A2["Accéder au Dashboard Admin"]
+        A3["Gérer les utilisateurs (CRUD)"]
+        A4["Modifier les rôles utilisateurs"]
+        A5["Gérer destinations / offres (CRUD)"]
+        A6["Consulter toutes les réservations"]
+    end
+
+    subgraph SECURITE["🔒 Sécurité"]
+        S1["Mots de passe hashés bcrypt"]
+        S2["Header X-User-Role vérifié côté serveur"]
+        S3["Requêtes PDO préparées (anti-SQLi)"]
+        S4["CORS restreint à localhost:3000"]
+        S5["Tokens de session avec expiration"]
+    end
+
+    VISITEUR --> USER
+    USER --> ADMIN
+
+    style VISITEUR fill:#162A3E,stroke:#00B4D8,color:#fff
+    style USER fill:#162A3E,stroke:#48CAB2,color:#fff
+    style ADMIN fill:#162A3E,stroke:#FFA500,color:#fff
+    style SECURITE fill:#162A3E,stroke:#FF6969,color:#fff

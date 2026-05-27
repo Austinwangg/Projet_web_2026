@@ -1,0 +1,57 @@
+erDiagram
+    destinations {
+        INT id PK
+        VARCHAR slug "UNIQUE NOT NULL"
+        VARCHAR ville
+        VARCHAR pays_fr
+        VARCHAR pays_en
+        VARCHAR type
+        DECIMAL note
+        INT nb_avis
+        INT duree_jours
+        DECIMAL prix_depuis
+        VARCHAR tag_fr
+        TEXT resume_fr
+        VARCHAR image_url
+        BOOLEAN actif
+    }
+    transports {
+        INT id PK
+        INT destination_id FK
+        ENUM type "avion train bus voiture"
+        VARCHAR compagnie
+        VARCHAR depart
+        VARCHAR arrivee
+        VARCHAR duree
+        VARCHAR horaire
+        DECIMAL prix
+        INT places_dispo
+    }
+    hebergements {
+        INT id PK
+        INT destination_id FK
+        VARCHAR nom
+        VARCHAR quartier
+        ENUM type "hotel villa auberge appartement"
+        DECIMAL prix_nuit
+        INT nb_etoiles
+        DECIMAL note
+        TEXT avantage_fr
+        VARCHAR image_url
+        INT nb_chambres_dispo
+    }
+    activites {
+        INT id PK
+        INT destination_id FK
+        VARCHAR nom_fr
+        VARCHAR nom_en
+        VARCHAR categorie
+        VARCHAR duree
+        DECIMAL prix
+        TEXT description_fr
+        INT places_restantes
+    }
+
+    destinations ||--o{ transports : "destination_id FK"
+    destinations ||--o{ hebergements : "destination_id FK"
+    destinations ||--o{ activites : "destination_id FK"
