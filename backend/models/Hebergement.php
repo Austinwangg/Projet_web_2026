@@ -8,6 +8,28 @@ class Hebergement {
         return $stmt->fetchAll();
     }
 
+    public static function getAllWithDest(): array {
+        $stmt = getDB()->query(
+            'SELECT h.*, d.ville, d.pays_fr, d.pays_en, d.slug AS dest_slug
+             FROM hebergements h
+             JOIN destinations d ON d.id = h.destination_id
+             ORDER BY d.pays_fr ASC, h.nb_etoiles DESC'
+        );
+        return $stmt->fetchAll();
+    }
+
+    public static function getByPays(string $pays): array {
+        $stmt = getDB()->prepare(
+            'SELECT h.*, d.ville, d.pays_fr, d.pays_en, d.slug AS dest_slug
+             FROM hebergements h
+             JOIN destinations d ON d.id = h.destination_id
+             WHERE d.pays_fr LIKE ? OR d.pays_en LIKE ?
+             ORDER BY h.nb_etoiles DESC'
+        );
+        $stmt->execute(["%$pays%", "%$pays%"]);
+        return $stmt->fetchAll();
+    }
+
     public static function getByDest(int $destId): array {
         $stmt = getDB()->prepare('SELECT * FROM hebergements WHERE destination_id = ? ORDER BY nb_etoiles DESC');
         $stmt->execute([$destId]);

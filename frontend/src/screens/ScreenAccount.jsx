@@ -4,6 +4,7 @@ import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
 import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
 import { updateReservationStatus } from '../services/reservationsService.js';
+import { getHebergementReservationsByUser, cancelHebergementReservation } from '../services/hebergementReservationsService.js';
 import api from '../services/api.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser }) {
@@ -24,10 +25,15 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [pwdMsg, setPwdMsg]   = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
 
-  // Réservations
+  // Réservations voyages
   const [reservations, setReservations] = useState([]);
   const [resLoading, setResLoading]     = useState(false);
   const [resActionId, setResActionId]   = useState(null);
+
+  // Réservations hôtels
+  const [hotelReservations, setHotelReservations] = useState([]);
+  const [hotelResLoading, setHotelResLoading]     = useState(false);
+  const [hotelResActionId, setHotelResActionId]   = useState(null);
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -40,6 +46,12 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         .then(r => setReservations(r.data))
         .catch(() => setReservations([]))
         .finally(() => setResLoading(false));
+
+      setHotelResLoading(true);
+      getHebergementReservationsByUser(user.id)
+        .then(r => setHotelReservations(Array.isArray(r.data) ? r.data : []))
+        .catch(() => setHotelReservations([]))
+        .finally(() => setHotelResLoading(false));
     }
   }, [tab, user?.id]);
 
@@ -96,6 +108,25 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const handleDeleteNotif = async (id) => {
     await deleteNotification(id);
     setNotifs(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleCancelHotelReservation = async (r) => {
+    if (!window.confirm(lang === 'fr' ? `Annuler la réservation hôtel ${r.reference} ?` : `Cancel hotel booking ${r.reference}?`)) return;
+    setHotelResActionId(r.id);
+    try {
+      await cancelHebergementReservation(r.id);
+      setHotelReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'info',
+        titre: lang === 'fr' ? `Réservation hôtel annulée · ${r.reference}` : `Hotel booking cancelled · ${r.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation hôtel ${r.reference} a été annulée. La chambre a été restituée.`
+          : `Your hotel booking ${r.reference} has been cancelled. The room has been released.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setHotelResActionId(null);
+    }
   };
 
   const handleCancelReservation = async (r) => {
@@ -168,11 +199,18 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
 
       {/* ── Réservations ── */}
       {tab === 'bookings' && (
-        <div className="col gap-16 fade-up">
-          {resLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
-          {!resLoading && reservations.length === 0 && (
-            <p className="muted">{T.account.noBookings}</p>
-          )}
+        <div className="col gap-32 fade-up">
+
+          {/* Voyages */}
+          <div>
+            <h3 className="serif mb-16" style={{ fontSize: 22 }}>
+              ✈ {lang === 'fr' ? 'Mes voyages' : 'My trips'}
+            </h3>
+            {resLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
+            {!resLoading && reservations.length === 0 && (
+              <p className="muted">{T.account.noBookings}</p>
+            )}
+          <div className="col gap-16">
           {reservations.map(r => {
             const destSlug = r.slug || '';
             const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
@@ -217,6 +255,65 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
               </div>
             );
           })}
+          </div>
+        </div>
+
+          {/* Hôtels */}
+          <div>
+            <h3 className="serif mb-16" style={{ fontSize: 22 }}>
+              🏨 {lang === 'fr' ? 'Mes hôtels réservés' : 'My hotel bookings'}
+            </h3>
+            {hotelResLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
+            {!hotelResLoading && hotelReservations.length === 0 && (
+              <p className="muted">{lang === 'fr' ? 'Aucune réservation d\'hôtel pour l\'instant.' : 'No hotel bookings yet.'}</p>
+            )}
+            <div className="col gap-16">
+              {hotelReservations.map(r => {
+                const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
+                return (
+                  <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
+                    <Placeholder label={(r.hotel_nom || '').toUpperCase()} ratio="16/10" cat="hotel" imageUrl={r.hotel_image} />
+                    <div>
+                      <div className="row gap-8 mb-4">
+                        <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
+                        <span className="mono muted" style={{ fontSize: 11 }}>Réf. {r.reference}</span>
+                      </div>
+                      <div className="serif" style={{ fontSize: 26, lineHeight: 1.1 }}>{r.hotel_nom}</div>
+                      <div className="muted mt-4" style={{ fontSize: 13 }}>
+                        {r.quartier ? `${r.quartier} · ` : ''}{r.ville}
+                        {lang === 'fr' ? `, ${r.pays_fr}` : `, ${r.pays_en}`}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {r.date_arrivee}
+                        {' → '}
+                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {r.date_depart}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                        {r.nb_personnes} {lang === 'fr' ? `personne${r.nb_personnes > 1 ? 's' : ''}` : `guest${r.nb_personnes > 1 ? 's' : ''}`}
+                        {' · '}
+                        {r.nb_nuits} {lang === 'fr' ? `nuit${r.nb_nuits > 1 ? 's' : ''}` : `night${r.nb_nuits > 1 ? 's' : ''}`}
+                      </div>
+                    </div>
+                    <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
+                      <div className="serif" style={{ fontSize: 26 }}>
+                        {Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                      </div>
+                      {canCancel && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)' }}
+                          disabled={hotelResActionId === r.id}
+                          onClick={() => handleCancelHotelReservation(r)}
+                        >
+                          {hotelResActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
         </div>
       )}

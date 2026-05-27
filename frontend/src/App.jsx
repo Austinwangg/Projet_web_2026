@@ -13,6 +13,7 @@ import ScreenPayment from './screens/ScreenPayment.jsx';
 import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
 import ScreenTransport from './screens/ScreenTransport.jsx';
+import ScreenHebergement from './screens/ScreenHebergement.jsx';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -122,6 +123,9 @@ export default function App() {
       )}
       {screen === 'transport' && (
         <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} />
+      )}
+      {screen === 'hebergement' && (
+        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />

@@ -2,7 +2,7 @@
 
 export const VV_I18N = {
   fr: {
-    nav: { destinations: 'Destinations', stays: 'Séjours', activities: 'Activités', transport: 'Transport' },
+    nav: { destinations: 'Destinations', stays: 'Séjours', activities: 'Activités', transport: 'Transport', hebergement: 'Hébergements' },
     cta: { signin: 'Connexion', signup: "S'inscrire", account: 'Mon compte', logout: 'Déconnexion' },
     search: {
       destination: 'Destination', destinationPh: 'Où voulez-vous aller ?',
@@ -173,7 +173,7 @@ export const VV_I18N = {
     }
   },
   en: {
-    nav: { destinations: 'Destinations', stays: 'Stays', activities: 'Activities', transport: 'Transport' },
+    nav: { destinations: 'Destinations', stays: 'Stays', activities: 'Activities', transport: 'Transport', hebergement: 'Accommodations' },
     cta: { signin: 'Sign in', signup: 'Sign up', account: 'Account', logout: 'Sign out' },
     search: {
       destination: 'Destination', destinationPh: 'Where would you like to go?',
