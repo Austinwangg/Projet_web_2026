@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getNotifications, markRead, markAllRead } from '../services/notificationsService.js';
+import { getNotifications, markRead, markAllRead } from '../services/notificationService.js';
 
 export default function Notifications({ user }) {
   const [open, setOpen] = useState(false);

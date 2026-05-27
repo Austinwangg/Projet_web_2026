@@ -41,35 +41,19 @@ class NotificationController {
                 break;
 
             case 'PUT':
-                if (!$id) {
-                    // Marquer tout lu pour un utilisateur
-                    $data   = json_decode(file_get_contents('php://input'), true);
-                    $uId    = (int) ($data['utilisateur_id'] ?? 0);
-                    $action = $data['action'] ?? '';
-                    if ($uId && $action === 'mark_all_read') {
-                        Notification::markAllRead($uId);
-                        echo json_encode(['message' => 'Toutes les notifications marquées comme lues'], JSON_UNESCAPED_UNICODE);
-                    } else {
-                        http_response_code(400);
-                        echo json_encode(['error' => 'id ou action mark_all_read requis']);
-                    }
-                    return;
-                }
-                Notification::markRead($id);
-                echo json_encode(['message' => 'Notification marquée comme lue'], JSON_UNESCAPED_UNICODE);
-                // Marquer lu (une ou toutes)
-                $data  = json_decode(file_get_contents('php://input'), true);
-                $allUid = isset($data['mark_all_read']) ? (int) $data['mark_all_read'] : null;
+                $data = json_decode(file_get_contents('php://input'), true);
 
-                if ($allUid) {
-                    getDB()->prepare('UPDATE notifications SET lu=1 WHERE utilisateur_id=?')->execute([$allUid]);
-                    echo json_encode(['message' => 'Toutes les notifications marquées lues'], JSON_UNESCAPED_UNICODE);
-                } elseif ($id) {
-                    getDB()->prepare('UPDATE notifications SET lu=1 WHERE id=?')->execute([$id]);
-                    echo json_encode(['message' => 'Notification marquée lue'], JSON_UNESCAPED_UNICODE);
+                if ($id) {
+                    // Marquer une notification comme lue
+                    Notification::markRead($id);
+                    echo json_encode(['message' => 'Notification marquée comme lue'], JSON_UNESCAPED_UNICODE);
+                } elseif (!empty($data['utilisateur_id']) && ($data['action'] ?? '') === 'mark_all_read') {
+                    // Marquer toutes les notifications d'un utilisateur comme lues
+                    Notification::markAllRead((int) $data['utilisateur_id']);
+                    echo json_encode(['message' => 'Toutes les notifications marquées comme lues'], JSON_UNESCAPED_UNICODE);
                 } else {
                     http_response_code(400);
-                    echo json_encode(['error' => 'id ou mark_all_read requis']);
+                    echo json_encode(['error' => 'id (query param) ou {utilisateur_id, action:"mark_all_read"} requis']);
                 }
                 break;
 
