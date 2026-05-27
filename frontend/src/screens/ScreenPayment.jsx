@@ -1,17 +1,114 @@
 import { useState } from 'react';
+import { createReservation } from '../services/reservationsService.js';
+import { createNotification } from '../services/notificationService.js';
+import api from '../services/api.js';
 
-export default function ScreenPayment({ T, lang, cart, navigate, onPaid }) {
+export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, search, detailId }) {
   const subtotal = cart.reduce((s, i) => s + i.price, 0);
-  const taxes = Math.round(subtotal * 0.06);
-  const total = subtotal + taxes || 1408;
-  const [method, setMethod] = useState('card');
-  const [card, setCard] = useState({ num: '4242 4242 4242 4242', name: 'Jean Dupont', exp: '07/28', cvv: '342' });
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const taxes    = Math.round(subtotal * 0.06);
+  const total    = subtotal + taxes || 1408;
 
-  const pay = () => {
+  // Resolve nb_voyageurs from cart items first, then global search state
+  const flightItemTop = cart.find(i => i.kind === 'flight');
+  const hotelItemTop  = cart.find(i => i.kind === 'hotel');
+  const cartNb = flightItemTop?.nbVoyageurs || hotelItemTop?.nbVoyageurs
+    || cart.find(i => i.nbVoyageurs)?.nbVoyageurs || 0;
+  const searchNb = search?.travelers
+    ? (search.travelers.adult || 0) + (search.travelers.student || 0) + (search.travelers.child || 0)
+    : 0;
+  const nbVoyageurs = cartNb || searchNb || 2;
+
+  // Nights from hotel or fallback
+  const hotelItemNights = cart.find(i => i.kind === 'hotel');
+  const nights = hotelItemNights
+    ? Math.max(1, Math.round((new Date(hotelItemNights.dateRetour) - new Date(hotelItemNights.dateDepart)) / 86400000))
+    : 7;
+
+  const [method, setMethod]       = useState('card');
+  const [card, setCard]           = useState({ num: '4242 4242 4242 4242', name: user?.name || 'Jean Dupont', exp: '07/28', cvv: '342' });
+  const [loading, setLoading]     = useState(false);
+  const [done, setDone]           = useState(false);
+  const [reference, setReference] = useState('');
+  const [error, setError]         = useState('');
+
+  const pay = async () => {
+    if (!user?.id) {
+      setError(lang === 'fr' ? 'Vous devez être connecté pour réserver.' : 'You must be logged in to book.');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => { setLoading(false); setDone(true); onPaid(); }, 1600);
+    setError('');
+
+    try {
+      // Resolve destination slug from cart items or fallback
+      const destSlug = cart.find(i => i.destSlug)?.destSlug || detailId || 'shanghai';
+
+      // Get destination_id from backend
+      const destRes = await api.get(`/destinations?slug=${destSlug}`);
+      const destinationId = destRes.data?.id;
+      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable.' : 'Destination not found.');
+
+      // Extract hebergement, transport and activite DB ids from cart
+      const hotelItem      = cart.find(i => i.kind === 'hotel');
+      const flightItem     = cart.find(i => i.kind === 'flight');
+      const actItems       = cart.filter(i => i.kind === 'activity');
+      const hebergementId  = hotelItem?.hebergementDbId || null;
+      const transportId    = flightItem?.transportDbId || null;
+      const activiteIds    = actItems.map(i => i.activiteDbId).filter(Boolean);
+
+      // Build dates — priorité transport > hôtel > recherche > fallback
+      const fmtLocal = (d) => {
+        const dt = d instanceof Date ? d : new Date(d);
+        const y  = dt.getFullYear();
+        const m  = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
+      const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
+      const dateDepart = transportDates?.dateDepart
+        ?? hotelDates?.dateDepart
+        ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
+      const dateRetour = transportDates?.dateRetour
+        ?? hotelDates?.dateRetour
+        ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
+
+      const travelers = nbVoyageurs;
+
+      const res = await createReservation({
+        utilisateur_id: user.id,
+        destination_id: destinationId,
+        hebergement_id: hebergementId,
+        transport_id:   transportId,
+        activite_ids:   activiteIds,
+        date_depart:    dateDepart,
+        date_retour:    dateRetour,
+        nb_voyageurs:   travelers || 1,
+        montant_total:  total,
+        statut:         'confirmee',
+      });
+
+      const ref = res.data?.reference || 'VV-XXXXXXX';
+      setReference(ref);
+
+      // Notify user (non-blocking)
+      createNotification({
+        utilisateur_id: user.id,
+        type:    'booking',
+        titre:   lang === 'fr' ? `Réservation confirmée · ${ref}` : `Booking confirmed · ${ref}`,
+        message: lang === 'fr'
+          ? `Votre voyage a été confirmé. Référence : ${ref}.`
+          : `Your trip has been confirmed. Reference: ${ref}.`,
+      }).catch(() => {});
+
+      setDone(true);
+      onPaid();
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || (lang === 'fr' ? 'Erreur lors de la réservation.' : 'Booking error.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (done) {
@@ -25,7 +122,9 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid }) {
         </div>
         <div className="card-tile fade-up" style={{ padding: 64, textAlign: 'center' }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--primary)', color: 'var(--primary-ink)', margin: '0 auto', display: 'grid', placeItems: 'center', fontSize: 32 }}>✓</div>
-          <span className="eyebrow mt-24" style={{ display: 'inline-block' }}>{lang === 'fr' ? 'RÉFÉRENCE · VV-2H4N9K' : 'REFERENCE · VV-2H4N9K'}</span>
+          <span className="eyebrow mt-24" style={{ display: 'inline-block' }}>
+            {(lang === 'fr' ? 'RÉFÉRENCE · ' : 'REFERENCE · ') + reference}
+          </span>
           <h1 className="serif mt-16" style={{ fontSize: 56, lineHeight: 1 }}>{T.pay.success}</h1>
           <p className="muted mt-16" style={{ fontSize: 16, maxWidth: 480, margin: '16px auto 0' }}>{T.pay.successSub}</p>
           <div className="row gap-12 mt-32" style={{ justifyContent: 'center' }}>
@@ -68,21 +167,21 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid }) {
             <div className="col gap-16 fade-up">
               <div>
                 <label className="field-label">{T.pay.cardNum}</label>
-                <input className="input mono" value={card.num} onChange={(e) => setCard({ ...card, num: e.target.value })} />
+                <input className="input mono" value={card.num} onChange={e => setCard({ ...card, num: e.target.value })} />
               </div>
               <div className="grid grid-2">
                 <div>
                   <label className="field-label">{T.pay.expiry}</label>
-                  <input className="input mono" value={card.exp} onChange={(e) => setCard({ ...card, exp: e.target.value })} />
+                  <input className="input mono" value={card.exp} onChange={e => setCard({ ...card, exp: e.target.value })} />
                 </div>
                 <div>
                   <label className="field-label">{T.pay.cvv}</label>
-                  <input className="input mono" value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value })} />
+                  <input className="input mono" value={card.cvv} onChange={e => setCard({ ...card, cvv: e.target.value })} />
                 </div>
               </div>
               <div>
                 <label className="field-label">{T.pay.name}</label>
-                <input className="input" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} />
+                <input className="input" value={card.name} onChange={e => setCard({ ...card, name: e.target.value })} />
               </div>
             </div>
           )}
@@ -101,6 +200,12 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid }) {
               <div className="serif" style={{ fontSize: 24, marginBottom: 8 }}>{lang === 'fr' ? 'Virement SEPA' : 'SEPA transfer'}</div>
               <p className="muted mono" style={{ fontSize: 13, marginTop: 8, letterSpacing: '0.05em' }}>FR76 3000 4028 7300 0123 4567 891</p>
               <p className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>BIC : BNPAFRPP</p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--danger)', background: 'color-mix(in oklab, var(--danger) 10%, transparent)' }}>
+              {error}
             </div>
           )}
 
@@ -140,7 +245,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid }) {
             <span className="serif" style={{ fontSize: 36 }}>{total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
           </div>
           <div className="muted mono" style={{ fontSize: 11, letterSpacing: '0.08em' }}>
-            {(T.cart.for(2, 7)).toUpperCase()}
+            {(T.cart.for(nbVoyageurs, nights)).toUpperCase()}
           </div>
         </aside>
       </div>

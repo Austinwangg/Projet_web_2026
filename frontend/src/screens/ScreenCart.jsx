@@ -3,8 +3,15 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, navigate }) 
   const taxes = Math.round(subtotal * 0.06);
   const total = subtotal + taxes;
   const empty = cart.length === 0;
-  const travelers = 2;
-  const days = 7;
+
+  const flightItem = cart.find(i => i.kind === 'flight');
+  const hotelItem  = cart.find(i => i.kind === 'hotel');
+  const travelers  = flightItem?.nbVoyageurs || hotelItem?.nbVoyageurs
+    || cart.find(i => i.nbVoyageurs)?.nbVoyageurs || 2;
+  const hotelNights = hotelItem
+    ? Math.max(1, Math.round((new Date(hotelItem.dateRetour) - new Date(hotelItem.dateDepart)) / 86400000))
+    : 7;
+  const days = hotelNights;
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>

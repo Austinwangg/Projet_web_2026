@@ -82,7 +82,7 @@ class Destination {
     public static function update(int $id, array $data): bool {
         $stmt = getDB()->prepare(
             'UPDATE destinations SET
-               slug=?, ville=?, pays_fr=?, pays_en=?, type=?,
+               slug=?, ville=?, pays_fr=?, pays_en=?, type=?, types_json=?,
                note=?, nb_avis=?, duree_jours=?, prix_depuis=?,
                tag_fr=?, tag_en=?, resume_fr=?, resume_en=?, image_url=?
              WHERE id=?'
@@ -93,6 +93,7 @@ class Destination {
             $data['pays_fr']     ?? '',
             $data['pays_en']     ?? '',
             $data['type']        ?? 'ville',
+            isset($data['types_json']) ? json_encode($data['types_json']) : '[]',
             $data['note']        ?? 4.5,
             $data['nb_avis']     ?? 0,
             $data['duree_jours'] ?? 7,

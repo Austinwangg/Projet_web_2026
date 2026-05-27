@@ -1,14 +1,46 @@
-import { useState } from 'react';
-import { destinations } from '../data.js';
+import { useState, useEffect } from 'react';
+import { getDestinations } from '../services/destinationsService.js';
 import Placeholder from '../components/Placeholder.jsx';
 import Stars from '../components/Stars.jsx';
 import SearchBar from '../components/SearchBar.jsx';
 
+function normalizeDestination(d) {
+  return {
+    id: d.slug,
+    dbId: d.id,
+    city: d.ville,
+    country: d.pays_fr,
+    countryEn: d.pays_en,
+    type: d.type,
+    types: (() => { try { return JSON.parse(d.types_json || '[]'); } catch { return [d.type]; } })(),
+    rating: parseFloat(d.note) || 4.5,
+    reviews: d.nb_avis || 0,
+    durationDays: d.duree_jours || 7,
+    priceFrom: d.prix_depuis || 0,
+    tag: d.tag_fr || '',
+    tagEn: d.tag_en || '',
+    blurb: d.resume_fr || '',
+    blurbEn: d.resume_en || '',
+    imageUrl: d.image_url || '',
+    ph: (d.ville || '').toUpperCase(),
+  };
+}
+
 export default function ScreenHome({ T, lang, search, setSearch, navigate, cardStyle }) {
-  const D = destinations;
+  const [destinations, setDestinations] = useState([]);
   const [activeCat, setActiveCat] = useState('all');
-  const filtered = activeCat === 'all' ? D.slice(0, 8) : D.filter(d => d.types.includes(activeCat)).slice(0, 8);
-  const shanghaiDest = D.find(d => d.id === 'shanghai');
+
+  useEffect(() => {
+    getDestinations()
+      .then(r => setDestinations(Array.isArray(r.data) ? r.data.map(normalizeDestination) : []))
+      .catch(() => setDestinations([]));
+  }, []);
+
+  const filtered = activeCat === 'all'
+    ? destinations.slice(0, 8)
+    : destinations.filter(d => d.types.includes(activeCat)).slice(0, 8);
+
+  const featuredDest = destinations.find(d => d.id === 'shanghai') || destinations[0];
 
   return (
     <main>
@@ -48,10 +80,7 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
 
         <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 36 }}>
           {T.home.categories.map(c => (
-            <button
-              key={c.id}
-              className={`pill ${activeCat === c.id ? 'active' : ''}`}
-              onClick={() => setActiveCat(c.id)}>
+            <button key={c.id} className={`pill ${activeCat === c.id ? 'active' : ''}`} onClick={() => setActiveCat(c.id)}>
               {c.label}
             </button>
           ))}
@@ -75,6 +104,11 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
               </div>
             </button>
           ))}
+          {destinations.length === 0 && (
+            <div className="card-tile center" style={{ gridColumn: '1 / -1', padding: 40 }}>
+              <p className="muted">{lang === 'fr' ? 'Chargement des destinations…' : 'Loading destinations…'}</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -102,35 +136,41 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
         </div>
       </section>
 
-      {/* FEATURED: SHANGHAI */}
-      <section className="section container">
-        <div className="card" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: 480, padding: 0, overflow: 'hidden' }}>
-          <Placeholder label="SHANGHAI · BUND" ratio="auto" cat="ville" style={{ minHeight: 480, height: '100%', borderRadius: 0 }} imageUrl={shanghaiDest?.imageUrl} />
-          <div style={{ padding: 56, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32 }}>
-            <div>
-              <span className="eyebrow">{T.home.featuredEyebrow}</span>
-              <h3 className="serif mt-16" style={{ fontSize: 48, lineHeight: 1.0 }}>{T.home.featuredTitle}</h3>
-              <p className="muted mt-16">{T.home.featuredSub}</p>
-            </div>
-            <div className="col gap-12">
-              <div className="between">
-                <Stars value={4.8} />
-                <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                  612 {lang === 'fr' ? 'AVIS' : 'REVIEWS'}
-                </span>
+      {/* FEATURED */}
+      {featuredDest && (
+        <section className="section container">
+          <div className="card" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', minHeight: 480, padding: 0, overflow: 'hidden' }}>
+            <Placeholder label={`${featuredDest.city.toUpperCase()} · ${featuredDest.country.toUpperCase()}`} ratio="auto" cat={featuredDest.type} style={{ minHeight: 480, height: '100%', borderRadius: 0 }} imageUrl={featuredDest.imageUrl} />
+            <div style={{ padding: 56, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32 }}>
+              <div>
+                <span className="eyebrow">{T.home.featuredEyebrow}</span>
+                <h3 className="serif mt-16" style={{ fontSize: 48, lineHeight: 1.0 }}>
+                  {featuredDest.id === 'shanghai' ? T.home.featuredTitle : `${featuredDest.city} · ${featuredDest.durationDays}j`}
+                </h3>
+                <p className="muted mt-16">
+                  {featuredDest.id === 'shanghai' ? T.home.featuredSub : (lang === 'fr' ? featuredDest.blurb : featuredDest.blurbEn)}
+                </p>
               </div>
-              <div className="between">
-                <div className="serif" style={{ fontSize: 36 }}>
-                  1 408 €<span className="muted" style={{ fontSize: 14, marginLeft: 8 }}>{T.detail.perPerson}</span>
+              <div className="col gap-12">
+                <div className="between">
+                  <Stars value={featuredDest.rating} />
+                  <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
+                    {featuredDest.reviews.toLocaleString()} {lang === 'fr' ? 'AVIS' : 'REVIEWS'}
+                  </span>
                 </div>
-                <button className="btn btn-ink" onClick={() => navigate('detail', { id: 'shanghai' })}>
-                  {T.home.featuredCta}
-                </button>
+                <div className="between">
+                  <div className="serif" style={{ fontSize: 36 }}>
+                    {featuredDest.priceFrom.toLocaleString()} €<span className="muted" style={{ fontSize: 14, marginLeft: 8 }}>{T.detail.perPerson}</span>
+                  </div>
+                  <button className="btn btn-ink" onClick={() => navigate('detail', { id: featuredDest.id })}>
+                    {T.home.featuredCta}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
     </main>
   );
 }

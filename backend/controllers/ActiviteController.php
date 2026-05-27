@@ -10,9 +10,16 @@ class ActiviteController {
 
         switch ($method) {
             case 'GET':
-                if ($id)     echo json_encode(Activite::getById($id) ?: ['error'=>'Non trouvé'], JSON_UNESCAPED_UNICODE);
-                elseif ($destId) echo json_encode(Activite::getByDest($destId), JSON_UNESCAPED_UNICODE);
-                else         echo json_encode(Activite::getAll(), JSON_UNESCAPED_UNICODE);
+                $checkDispo = isset($_GET['check_dispo']) ? (int) $_GET['check_dispo'] : null;
+                if ($checkDispo) {
+                    echo json_encode(['available' => Activite::isAvailable($checkDispo)], JSON_UNESCAPED_UNICODE);
+                } elseif ($id) {
+                    echo json_encode(Activite::getById($id) ?: ['error'=>'Non trouvé'], JSON_UNESCAPED_UNICODE);
+                } elseif ($destId) {
+                    echo json_encode(Activite::getByDest($destId), JSON_UNESCAPED_UNICODE);
+                } else {
+                    echo json_encode(Activite::getAll(), JSON_UNESCAPED_UNICODE);
+                }
                 break;
             case 'POST':
                 $data = json_decode(file_get_contents('php://input'), true);

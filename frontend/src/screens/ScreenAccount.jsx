@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
-import { getNotifications, markRead, markAllRead, deleteNotification } from '../services/notificationService.js';
+import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
+import { updateReservationStatus } from '../services/reservationsService.js';
+import { getHebergementReservationsByUser, cancelHebergementReservation } from '../services/hebergementReservationsService.js';
 import api from '../services/api.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser }) {
@@ -23,9 +25,15 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [pwdMsg, setPwdMsg]   = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
 
-  // Réservations
+  // Réservations voyages
   const [reservations, setReservations] = useState([]);
   const [resLoading, setResLoading]     = useState(false);
+  const [resActionId, setResActionId]   = useState(null);
+
+  // Réservations hôtels
+  const [hotelReservations, setHotelReservations] = useState([]);
+  const [hotelResLoading, setHotelResLoading]     = useState(false);
+  const [hotelResActionId, setHotelResActionId]   = useState(null);
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -38,6 +46,12 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         .then(r => setReservations(r.data))
         .catch(() => setReservations([]))
         .finally(() => setResLoading(false));
+
+      setHotelResLoading(true);
+      getHebergementReservationsByUser(user.id)
+        .then(r => setHotelReservations(Array.isArray(r.data) ? r.data : []))
+        .catch(() => setHotelReservations([]))
+        .finally(() => setHotelResLoading(false));
     }
   }, [tab, user?.id]);
 
@@ -45,7 +59,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     if (tab === 'notifications' && user?.id) {
       setNotifsLoading(true);
       getNotifications(user.id)
-        .then(r => setNotifs(r.data))
+        .then(r => setNotifs(r.data.notifications || []))
         .catch(() => setNotifs([]))
         .finally(() => setNotifsLoading(false));
     }
@@ -96,7 +110,53 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     setNotifs(prev => prev.filter(n => n.id !== id));
   };
 
+  const handleCancelHotelReservation = async (r) => {
+    if (!window.confirm(lang === 'fr' ? `Annuler la réservation hôtel ${r.reference} ?` : `Cancel hotel booking ${r.reference}?`)) return;
+    setHotelResActionId(r.id);
+    try {
+      await cancelHebergementReservation(r.id);
+      setHotelReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'info',
+        titre: lang === 'fr' ? `Réservation hôtel annulée · ${r.reference}` : `Hotel booking cancelled · ${r.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation hôtel ${r.reference} a été annulée. La chambre a été restituée.`
+          : `Your hotel booking ${r.reference} has been cancelled. The room has been released.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setHotelResActionId(null);
+    }
+  };
+
+  const handleCancelReservation = async (r) => {
+    if (!window.confirm(lang === 'fr' ? `Annuler la réservation ${r.reference} ?` : `Cancel booking ${r.reference}?`)) return;
+    setResActionId(r.id);
+    try {
+      await updateReservationStatus(r.id, 'annulee');
+      // Le backend gère déjà la restitution des places transport/hébergement/activités dans Reservation::cancel()
+      setReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
+      createNotification({
+        utilisateur_id: user.id,
+        type:    'info',
+        titre:   lang === 'fr' ? `Réservation annulée · ${r.reference}` : `Booking cancelled · ${r.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation ${r.reference} a été annulée. Les places ont été restituées.`
+          : `Your booking ${r.reference} has been cancelled. Seats have been released.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setResActionId(null);
+    }
+  };
+
   const unreadCount = notifs.filter(n => !n.lu).length;
+
+  const iconForType = (type) => ({ booking: '✈️', promotion: '🎁', info: 'ℹ️', alert: '⚠️' }[type] || '🔔');
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
   const statusLabel = (s) => ({
     confirmee: T.account.confirmed,
@@ -139,15 +199,23 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
 
       {/* ── Réservations ── */}
       {tab === 'bookings' && (
-        <div className="col gap-16 fade-up">
-          {resLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
-          {!resLoading && reservations.length === 0 && (
-            <p className="muted">{T.account.noBookings}</p>
-          )}
+        <div className="col gap-32 fade-up">
+
+          {/* Voyages */}
+          <div>
+            <h3 className="serif mb-16" style={{ fontSize: 22 }}>
+              ✈ {lang === 'fr' ? 'Mes voyages' : 'My trips'}
+            </h3>
+            {resLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
+            {!resLoading && reservations.length === 0 && (
+              <p className="muted">{T.account.noBookings}</p>
+            )}
+          <div className="col gap-16">
           {reservations.map(r => {
             const destSlug = r.slug || '';
             const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
             const destName = lang === 'fr' ? (r.ville || destSlug) : (r.pays_en || r.ville || destSlug);
+            const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
                 <Placeholder label={destName.toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
@@ -160,17 +228,93 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                   <div className="muted mt-4" style={{ fontSize: 13.5 }}>
                     {r.date_depart} → {r.date_retour} · {T.account.travelers(r.nb_voyageurs)}
                   </div>
+                  {r.transport_id && (
+                    <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
+                      <span className="tag" style={{ fontSize: 12 }}>
+                        ✈ {r.transport_depart || ''} → {r.transport_arrivee || ''}
+                        {r.compagnie ? ` · ${r.compagnie}` : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
                   <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
                   <div className="row gap-8">
-                    {r.statut === 'confirmee' && <button className="btn btn-outline btn-sm">{T.account.modify}</button>}
+                    {canCancel && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--danger)' }}
+                        disabled={resActionId === r.id}
+                        onClick={() => handleCancelReservation(r)}>
+                        {resActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
+                      </button>
+                    )}
                     <button className="btn btn-ghost btn-sm" onClick={() => navigate('detail', { id: r.slug || 'shanghai' })}>{T.account.details} →</button>
                   </div>
                 </div>
               </div>
             );
           })}
+          </div>
+        </div>
+
+          {/* Hôtels */}
+          <div>
+            <h3 className="serif mb-16" style={{ fontSize: 22 }}>
+              🏨 {lang === 'fr' ? 'Mes hôtels réservés' : 'My hotel bookings'}
+            </h3>
+            {hotelResLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
+            {!hotelResLoading && hotelReservations.length === 0 && (
+              <p className="muted">{lang === 'fr' ? 'Aucune réservation d\'hôtel pour l\'instant.' : 'No hotel bookings yet.'}</p>
+            )}
+            <div className="col gap-16">
+              {hotelReservations.map(r => {
+                const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
+                return (
+                  <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
+                    <Placeholder label={(r.hotel_nom || '').toUpperCase()} ratio="16/10" cat="hotel" imageUrl={r.hotel_image} />
+                    <div>
+                      <div className="row gap-8 mb-4">
+                        <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
+                        <span className="mono muted" style={{ fontSize: 11 }}>Réf. {r.reference}</span>
+                      </div>
+                      <div className="serif" style={{ fontSize: 26, lineHeight: 1.1 }}>{r.hotel_nom}</div>
+                      <div className="muted mt-4" style={{ fontSize: 13 }}>
+                        {r.quartier ? `${r.quartier} · ` : ''}{r.ville}
+                        {lang === 'fr' ? `, ${r.pays_fr}` : `, ${r.pays_en}`}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {r.date_arrivee}
+                        {' → '}
+                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {r.date_depart}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                        {r.nb_personnes} {lang === 'fr' ? `personne${r.nb_personnes > 1 ? 's' : ''}` : `guest${r.nb_personnes > 1 ? 's' : ''}`}
+                        {' · '}
+                        {r.nb_nuits} {lang === 'fr' ? `nuit${r.nb_nuits > 1 ? 's' : ''}` : `night${r.nb_nuits > 1 ? 's' : ''}`}
+                      </div>
+                    </div>
+                    <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
+                      <div className="serif" style={{ fontSize: 26 }}>
+                        {Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                      </div>
+                      {canCancel && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)' }}
+                          disabled={hotelResActionId === r.id}
+                          onClick={() => handleCancelHotelReservation(r)}
+                        >
+                          {hotelResActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -264,49 +408,37 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
       {/* ── Notifications ── */}
       {tab === 'notifications' && (
         <div className="col gap-12 fade-up" style={{ maxWidth: 720 }}>
-          {notifsLoading && <p className="muted">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</p>}
-          {!notifsLoading && notifs.length > 0 && (
-            <div className="between mb-8">
-              <span className="mono muted" style={{ fontSize: 11 }}>
-                {unreadCount > 0 ? `${unreadCount} ${lang === 'fr' ? 'non lu(s)' : 'unread'}` : lang === 'fr' ? 'Tout lu' : 'All read'}
-              </span>
-              {unreadCount > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
-                  {lang === 'fr' ? 'Tout marquer comme lu' : 'Mark all as read'}
-                </button>
-              )}
+          {unreadCount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
+                {lang === 'fr' ? 'Tout marquer comme lu' : 'Mark all as read'}
+              </button>
             </div>
           )}
-          {!notifsLoading && notifs.length === 0 && (
-            <p className="muted">{lang === 'fr' ? 'Aucune notification.' : 'No notifications.'}</p>
-          )}
-          {notifs.map(n => (
-            <div key={n.id} className="card-tile row gap-16"
-              style={{ padding: 18, alignItems: 'center', opacity: n.lu ? 0.65 : 1 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', fontSize: 16 }}>
-                {n.icone}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: n.lu ? 400 : 600 }}>
-                  {lang === 'fr' ? n.message_fr : (n.message_en || n.message_fr)}
-                </div>
-                <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
-                  {new Date(n.created_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()}
-                </div>
-              </div>
-              <div className="row gap-8">
-                {!n.lu && (
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleMarkRead(n.id)} title={lang === 'fr' ? 'Marquer comme lu' : 'Mark as read'}>
-                    ✓
-                  </button>
-                )}
-                <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteNotif(n.id)} title={lang === 'fr' ? 'Supprimer' : 'Delete'}>
-                  ✕
-                </button>
-              </div>
-              {!n.lu && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
+          {notifs.length === 0 ? (
+            <div className="card-tile" style={{ padding: 40, textAlign: 'center', color: 'var(--ink-faint)' }}>
+              {lang === 'fr' ? 'Aucune notification pour le moment.' : 'No notifications yet.'}
             </div>
-          ))}
+          ) : (
+            notifs.map((n) => (
+              <div
+                key={n.id}
+                className="card-tile row gap-16"
+                style={{ padding: 18, alignItems: 'center', background: n.lu === 0 ? 'color-mix(in oklab, var(--primary) 5%, var(--surface))' : undefined, cursor: n.lu === 0 ? 'pointer' : 'default' }}
+                onClick={() => n.lu === 0 && handleMarkRead(n.id)}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  {iconForType(n.type)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: n.lu === 0 ? 600 : 500 }}>{n.titre}</div>
+                  {n.message && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{n.message}</div>}
+                  <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>{formatDate(n.created_at).toUpperCase()}</div>
+                </div>
+                {n.lu === 0 && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
+              </div>
+            ))
+          )}
         </div>
       )}
     </main>

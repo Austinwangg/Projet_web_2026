@@ -1,0 +1,553 @@
+import { useState, useEffect, useMemo } from 'react';
+import { searchTransports } from '../services/transportsService.js';
+import { getDestinations } from '../services/destinationsService.js';
+
+const TYPE_ICONS = { avion: '✈', train: '🚆', bus: '🚌', voiture: '🚗' };
+const TYPE_LABELS = {
+  fr: { avion: 'Avion', train: 'Train', bus: 'Bus', voiture: 'Voiture' },
+  en: { avion: 'Plane', train: 'Train', bus: 'Bus', voiture: 'Car' },
+};
+
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function today() { return toLocalISO(new Date()); }
+
+function addDays(dateStr, n) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return toLocalISO(dt);
+}
+
+/** Valide les dates côté client — retourne un message d'erreur ou null */
+function validateDates(depart, retour) {
+  if (!depart) return 'Sélectionnez une date de départ.';
+  if (!retour) return 'Sélectionnez une date de retour.';
+  const d = new Date(depart);
+  const r = new Date(retour);
+  const t = new Date(today());
+  if (d < t) return 'La date de départ ne peut pas être dans le passé.';
+  if (r <= d) return 'La date de retour doit être postérieure à la date de départ.';
+  return null;
+}
+
+export default function ScreenTransport({ T, lang, navigate, user, addToCart, searchDates, searchTravelers }) {
+  const [destinations, setDestinations] = useState([]);
+
+  // Filtres
+  const [destId, setDestId]         = useState('');
+  const [type, setType]             = useState('');
+  const [prixMax, setPrixMax]       = useState('');
+  const [prixMin, setPrixMin]       = useState('');
+  const [sortBy, setSortBy]         = useState('prix_asc');
+
+  // Dates
+  const [dateDepart, setDateDepart] = useState(() =>
+    searchDates?.start instanceof Date ? toLocalISO(searchDates.start) : today()
+  );
+  const [dateRetour, setDateRetour] = useState(() =>
+    searchDates?.end instanceof Date ? toLocalISO(searchDates.end) : addDays(today(), 7)
+  );
+  const [dateError, setDateError]   = useState('');
+
+  // Voyageurs
+  const [nbVoyageurs, setNbVoyageurs] = useState(() => {
+    if (!searchTravelers) return 2;
+    return (searchTravelers.adult || 0) + (searchTravelers.student || 0) + (searchTravelers.child || 0) || 2;
+  });
+
+  // Résultats
+  const [results, setResults]   = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [addedMsg, setAddedMsg] = useState('');
+
+  useEffect(() => {
+    getDestinations()
+      .then(r => setDestinations(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+  }, []);
+
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+
+    const err = validateDates(dateDepart, dateRetour);
+    if (err) { setDateError(err); return; }
+    setDateError('');
+
+    setLoading(true);
+    setSearched(true);
+    setSelected(null);
+
+    const filters = {};
+    if (destId)  filters.destination_id = destId;
+    if (type)    filters.type = type;
+    if (prixMin) filters.prix_min = prixMin;
+    if (prixMax) filters.prix_max = prixMax;
+    filters.places_min = nbVoyageurs;
+
+    try {
+      const res = await searchTransports(filters);
+      setResults(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sorted = useMemo(() => {
+    const arr = [...results];
+    if (sortBy === 'prix_asc')   return arr.sort((a, b) => a.prix - b.prix);
+    if (sortBy === 'prix_desc')  return arr.sort((a, b) => b.prix - a.prix);
+    if (sortBy === 'duree')      return arr.sort((a, b) => (a.duree || '').localeCompare(b.duree || ''));
+    if (sortBy === 'dispo_desc') return arr.sort((a, b) => b.places_dispo - a.places_dispo);
+    return arr;
+  }, [results, sortBy]);
+
+  const handleAddToCart = () => {
+    if (!selected) return;
+    const err = validateDates(dateDepart, dateRetour);
+    if (err) { setDateError(err); return; }
+    setDateError('');
+
+    const t = results.find(r => r.id === selected);
+    if (!t) return;
+
+    const destName = destinations.find(d => d.id === t.destination_id);
+    const destSlug = destName?.slug || '';
+
+    addToCart([{
+      id: 'transport-' + t.id,
+      kind: 'flight',
+      destSlug,
+      transportDbId: t.id,
+      title: `${lang === 'fr' ? 'Transport' : 'Transport'} · ${t.depart} → ${t.arrivee}`,
+      sub: `${t.compagnie || ''} · ${t.duree || ''} · ${dateDepart} → ${dateRetour}`,
+      price: parseFloat(t.prix) * nbVoyageurs,
+      icon: TYPE_ICONS[t.type] || '✈',
+      dateDepart,
+      dateRetour,
+      nbVoyageurs,
+    }]);
+    setAddedMsg(lang === 'fr' ? '✓ Transport ajouté au panier' : '✓ Transport added to cart');
+    setTimeout(() => setAddedMsg(''), 3000);
+  };
+
+  const fr = lang === 'fr';
+  const types = ['avion', 'train', 'bus', 'voiture'];
+
+  return (
+    <main className="container" style={{ paddingTop: 40 }}>
+      {/* En-tête */}
+      <div className="mb-32">
+        <span className="eyebrow">{fr ? 'PLANIFICATION DES TRAJETS' : 'TRIP PLANNING'}</span>
+        <h1 className="serif mt-8" style={{ fontSize: 'clamp(40px, 5vw, 64px)', lineHeight: 1 }}>
+          {fr ? 'Recherche de ' : 'Find your '}<em style={{ color: 'var(--primary)' }}>{fr ? 'transports' : 'transport'}</em>
+        </h1>
+        <p className="muted mt-12" style={{ maxWidth: 560, fontSize: 16 }}>
+          {fr
+            ? 'Filtrez par destination, type, prix et disponibilité. Sélectionnez un trajet pour l\'ajouter à votre séjour.'
+            : 'Filter by destination, type, price and availability. Select a route to add it to your stay.'}
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 40, alignItems: 'flex-start' }}>
+
+        {/* ── PANNEAU FILTRES ── */}
+        <aside className="card-tile" style={{ padding: 28, position: 'sticky', top: 24 }}>
+          <form onSubmit={handleSearch} className="col gap-20">
+            <div>
+              <span className="eyebrow">{fr ? 'FILTRES' : 'FILTERS'}</span>
+            </div>
+
+            {/* Destination */}
+            <div>
+              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
+                {fr ? 'DESTINATION' : 'DESTINATION'}
+              </label>
+              <select
+                className="input"
+                style={{ width: '100%' }}
+                value={destId}
+                onChange={e => setDestId(e.target.value)}
+              >
+                <option value="">{fr ? 'Toutes les destinations' : 'All destinations'}</option>
+                {destinations.map(d => (
+                  <option key={d.id} value={d.id}>{d.ville} ({fr ? d.pays_fr : d.pays_en})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                {fr ? 'TYPE DE TRANSPORT' : 'TRANSPORT TYPE'}
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${type === '' ? 'btn-ink' : 'btn-outline'}`}
+                  onClick={() => setType('')}
+                >
+                  {fr ? 'Tous' : 'All'}
+                </button>
+                {types.map(tp => (
+                  <button
+                    key={tp}
+                    type="button"
+                    className={`btn btn-sm ${type === tp ? 'btn-ink' : 'btn-outline'}`}
+                    onClick={() => setType(tp)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}
+                  >
+                    {TYPE_ICONS[tp]} {TYPE_LABELS[fr ? 'fr' : 'en'][tp]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Prix */}
+            <div>
+              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                {fr ? 'PRIX / PERSONNE (€)' : 'PRICE / PERSON (€)'}
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder={fr ? 'Min' : 'Min'}
+                  value={prixMin}
+                  onChange={e => setPrixMin(e.target.value)}
+                />
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder={fr ? 'Max' : 'Max'}
+                  value={prixMax}
+                  onChange={e => setPrixMax(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div>
+              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                {fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
+              </label>
+              <div className="col gap-8">
+                <div>
+                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
+                    {fr ? 'DÉPART' : 'DEPARTURE'}
+                  </label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={dateDepart}
+                    min={today()}
+                    style={{ width: '100%', marginTop: 4 }}
+                    onChange={e => {
+                      setDateDepart(e.target.value);
+                      setDateError('');
+                      // Auto-ajuste retour si incohérent
+                      if (dateRetour && e.target.value >= dateRetour) {
+                        setDateRetour(addDays(e.target.value, 1));
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
+                    {fr ? 'RETOUR' : 'RETURN'}
+                  </label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={dateRetour}
+                    min={addDays(dateDepart, 1) || today()}
+                    style={{ width: '100%', marginTop: 4 }}
+                    onChange={e => {
+                      setDateRetour(e.target.value);
+                      setDateError('');
+                    }}
+                  />
+                </div>
+              </div>
+              {dateError && (
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)', padding: '6px 10px', borderRadius: 6, background: 'color-mix(in oklab, var(--danger) 10%, transparent)' }}>
+                  {dateError}
+                </div>
+              )}
+            </div>
+
+            {/* Voyageurs */}
+            <div>
+              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+                {fr ? 'VOYAGEURS' : 'TRAVELERS'}
+              </label>
+              <div className="row gap-8" style={{ alignItems: 'center' }}>
+                <button type="button" className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setNbVoyageurs(Math.max(1, nbVoyageurs - 1))}>−</button>
+                <span className="mono" style={{ fontSize: 15, minWidth: 24, textAlign: 'center' }}>{nbVoyageurs}</span>
+                <button type="button" className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setNbVoyageurs(Math.min(20, nbVoyageurs + 1))}>+</button>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
+              {loading ? (fr ? 'Recherche…' : 'Searching…') : (fr ? '🔍 Rechercher' : '🔍 Search')}
+            </button>
+
+            {(destId || type || prixMin || prixMax) && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setDestId(''); setType(''); setPrixMin(''); setPrixMax(''); }}
+              >
+                {fr ? '✕ Réinitialiser les filtres' : '✕ Reset filters'}
+              </button>
+            )}
+          </form>
+        </aside>
+
+        {/* ── RÉSULTATS ── */}
+        <div className="col gap-16">
+
+          {/* Tri + compteur */}
+          {searched && (
+            <div className="between">
+              <span className="muted" style={{ fontSize: 14 }}>
+                {loading
+                  ? (fr ? 'Chargement…' : 'Loading…')
+                  : `${sorted.length} ${fr ? 'trajet(s) disponible(s)' : 'route(s) available'}`}
+              </span>
+              {!loading && sorted.length > 1 && (
+                <select
+                  className="input"
+                  style={{ width: 'auto', padding: '6px 12px', fontSize: 13 }}
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value)}
+                >
+                  <option value="prix_asc">{fr ? 'Prix croissant' : 'Price ↑'}</option>
+                  <option value="prix_desc">{fr ? 'Prix décroissant' : 'Price ↓'}</option>
+                  <option value="duree">{fr ? 'Durée' : 'Duration'}</option>
+                  <option value="dispo_desc">{fr ? 'Disponibilité' : 'Availability'}</option>
+                </select>
+              )}
+            </div>
+          )}
+
+          {/* État initial */}
+          {!searched && !loading && (
+            <div className="card-tile center" style={{ padding: '60px 40px' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✈</div>
+              <p className="serif" style={{ fontSize: 22, marginBottom: 8 }}>
+                {fr ? 'Recherchez un trajet' : 'Search for a route'}
+              </p>
+              <p className="muted" style={{ fontSize: 14 }}>
+                {fr
+                  ? 'Utilisez les filtres à gauche et cliquez sur Rechercher.'
+                  : 'Use the filters on the left and click Search.'}
+              </p>
+            </div>
+          )}
+
+          {/* Aucun résultat */}
+          {searched && !loading && sorted.length === 0 && (
+            <div className="card-tile center" style={{ padding: '60px 40px' }}>
+              <p className="serif" style={{ fontSize: 22, marginBottom: 8 }}>
+                {fr ? 'Aucun trajet disponible' : 'No routes available'}
+              </p>
+              <p className="muted" style={{ fontSize: 14 }}>
+                {fr
+                  ? 'Modifiez vos filtres ou choisissez une autre destination.'
+                  : 'Try different filters or choose another destination.'}
+              </p>
+            </div>
+          )}
+
+          {/* Liste des résultats */}
+          {sorted.map(t => {
+            const isSelected = selected === t.id;
+            const totalPrix  = parseFloat(t.prix) * nbVoyageurs;
+            const dispo      = parseInt(t.places_dispo, 10);
+            const lowDispo   = dispo <= 5;
+
+            return (
+              <div
+                key={t.id}
+                className="card-tile fade-up"
+                style={{
+                  padding: 24,
+                  cursor: 'pointer',
+                  border: isSelected ? '2px solid var(--ink)' : '1px solid var(--line-soft)',
+                  transition: 'border-color .15s',
+                }}
+                onClick={() => setSelected(isSelected ? null : t.id)}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 20, alignItems: 'center' }}>
+
+                  {/* Type icône */}
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 12,
+                    background: 'var(--surface-2)',
+                    display: 'grid', placeItems: 'center',
+                    fontSize: 24,
+                  }}>
+                    {TYPE_ICONS[t.type] || '✈'}
+                  </div>
+
+                  {/* Infos trajet */}
+                  <div>
+                    <div className="row gap-12" style={{ alignItems: 'center', marginBottom: 4 }}>
+                      <span className="serif" style={{ fontSize: 20 }}>{t.compagnie || (fr ? 'Compagnie' : 'Company')}</span>
+                      <span className="tag">{TYPE_LABELS[fr ? 'fr' : 'en'][t.type]}</span>
+                    </div>
+                    <div className="row gap-8" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{t.depart}</span>
+                      <span className="muted">→</span>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{t.arrivee}</span>
+                      {t.duree && (
+                        <>
+                          <span className="muted">·</span>
+                          <span className="mono muted" style={{ fontSize: 12 }}>{t.duree}</span>
+                        </>
+                      )}
+                    </div>
+                    {t.horaire && (
+                      <div className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 4, letterSpacing: '0.06em' }}>
+                        {t.horaire}
+                      </div>
+                    )}
+                    <div className="row gap-12 mt-8" style={{ flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12, color: lowDispo ? 'var(--danger)' : 'var(--ok)', fontFamily: 'JetBrains Mono' }}>
+                        {dispo} {fr ? 'place(s) disponible(s)' : 'seat(s) available'}
+                        {lowDispo && ' ⚠'}
+                      </span>
+                      <span className="muted mono" style={{ fontSize: 11 }}>
+                        {fr ? `${nbVoyageurs} voyageur(s)` : `${nbVoyageurs} traveler(s)`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Prix */}
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="serif" style={{ fontSize: 28 }}>{totalPrix.toLocaleString(fr ? 'fr-FR' : 'en-US')} €</div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {parseFloat(t.prix).toLocaleString(fr ? 'fr-FR' : 'en-US')} € {fr ? '/ pers.' : '/ person'}
+                    </div>
+                  </div>
+
+                  {/* Sélection */}
+                  <div>
+                    <button
+                      className={`btn btn-sm ${isSelected ? 'btn-ink' : 'btn-outline'}`}
+                      onClick={e => { e.stopPropagation(); setSelected(isSelected ? null : t.id); }}
+                    >
+                      {isSelected ? (fr ? '✓ Sélectionné' : '✓ Selected') : (fr ? 'Choisir' : 'Select')}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Panneau dates (visible quand sélectionné) */}
+                {isSelected && (
+                  <div className="fade-up" style={{
+                    marginTop: 20, paddingTop: 20,
+                    borderTop: '1px solid var(--line-soft)',
+                    display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 16, alignItems: 'flex-end',
+                  }}>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
+                        {fr ? 'DATE DE DÉPART' : 'DEPARTURE DATE'}
+                      </label>
+                      <input
+                        className="input"
+                        type="date"
+                        value={dateDepart}
+                        min={today()}
+                        style={{ width: '100%' }}
+                        onChange={e => {
+                          setDateDepart(e.target.value);
+                          setDateError('');
+                          if (dateRetour && e.target.value >= dateRetour) {
+                            setDateRetour(addDays(e.target.value, 1));
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
+                        {fr ? 'DATE DE RETOUR' : 'RETURN DATE'}
+                      </label>
+                      <input
+                        className="input"
+                        type="date"
+                        value={dateRetour}
+                        min={addDays(dateDepart, 1) || today()}
+                        style={{ width: '100%' }}
+                        onChange={e => {
+                          setDateRetour(e.target.value);
+                          setDateError('');
+                        }}
+                      />
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleAddToCart}
+                      style={{ whiteSpace: 'nowrap', height: 44 }}
+                    >
+                      {fr ? '+ Ajouter au panier' : '+ Add to cart'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Message confirmation ajout panier */}
+          {addedMsg && (
+            <div style={{
+              position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
+              background: 'var(--ink)', color: 'var(--surface)', padding: '12px 24px',
+              borderRadius: 12, fontSize: 14, fontWeight: 600, zIndex: 999,
+              boxShadow: '0 4px 24px rgba(0,0,0,.25)',
+            }}>
+              {addedMsg}
+            </div>
+          )}
+
+          {/* CTA si trajet sélectionné */}
+          {selected && !addedMsg && (
+            <div className="card-tile fade-up" style={{ padding: 24, background: 'color-mix(in oklab, var(--primary) 6%, var(--surface))' }}>
+              <div className="between" style={{ alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>
+                    {fr ? 'Trajet sélectionné' : 'Route selected'}
+                  </div>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                    {fr
+                      ? 'Confirmez les dates ci-dessus puis ajoutez au panier.'
+                      : 'Confirm dates above then add to cart.'}
+                  </div>
+                </div>
+                <div className="row gap-12">
+                  <button className="btn btn-outline btn-sm" onClick={() => navigate('results')}>
+                    {fr ? '← Retour aux destinations' : '← Back to destinations'}
+                  </button>
+                  <button className="btn btn-primary" onClick={() => navigate('cart')}>
+                    {fr ? 'Voir le panier →' : 'View cart →'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}

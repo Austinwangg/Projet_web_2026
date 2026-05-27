@@ -15,6 +15,8 @@ import ScreenAdmin from './screens/ScreenAdmin.jsx';
 // TEST_PERSONS
 import ScreenPersons from './screens/ScreenPersons.jsx';
 // END TEST_PERSONS
+import ScreenTransport from './screens/ScreenTransport.jsx';
+import ScreenHebergement from './screens/ScreenHebergement.jsx';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -64,6 +66,16 @@ export default function App() {
     const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
     const enriched = { ...userData, name: nom, initials: initials.toUpperCase() };
+    const nom = typeof userData === 'string' ? userData : (userData.nom || '');
+    const parts = nom.trim().split(' ');
+    const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    const enriched = {
+      id: userData.id ?? null,
+      name: nom,
+      email: userData.email ?? null,
+      role: userData.role ?? 'user',
+      initials: initials.toUpperCase(),
+    };
     setUser(enriched);
     localStorage.setItem('vv_user', JSON.stringify(enriched));
     setAuthMode(null);
@@ -102,7 +114,7 @@ export default function App() {
         <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
       )}
       {screen === 'detail' && (
-        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} />
+        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} />
       )}
       {screen === 'itinerary' && (
         <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
@@ -111,10 +123,16 @@ export default function App() {
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
       )}
       {screen === 'payment' && (
-        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} />
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
       )}
       {screen === 'account' && (
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
+      )}
+      {screen === 'transport' && (
+        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} />
+      )}
+      {screen === 'hebergement' && (
+        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
