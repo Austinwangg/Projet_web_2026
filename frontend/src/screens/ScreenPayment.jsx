@@ -155,8 +155,9 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         <div className="stepper mb-32">
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Composition' : 'Compose'}</div>
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Panier' : 'Cart'}</div>
+          <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Informations' : 'Passengers'}</div>
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
-          <div className="step active"><div className="step-num">4</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
+          <div className="step active"><div className="step-num">5</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
         </div>
         <div className="card-tile fade-up" style={{ padding: 64, textAlign: 'center' }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--primary)', color: 'var(--primary-ink)', margin: '0 auto', display: 'grid', placeItems: 'center', fontSize: 32 }}>✓</div>
@@ -179,8 +180,9 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
       <div className="stepper mb-32">
         <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Composition' : 'Compose'}</div>
         <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Panier' : 'Cart'}</div>
-        <div className="step active"><div className="step-num">3</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
-        <div className="step"><div className="step-num">4</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
+        <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Informations' : 'Passengers'}</div>
+        <div className="step active"><div className="step-num">4</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
+        <div className="step"><div className="step-num">5</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
       </div>
 
       <div className="mb-32">

@@ -15,6 +15,8 @@ import ScreenAdmin from './screens/ScreenAdmin.jsx';
 import ScreenTransport from './screens/ScreenTransport.jsx';
 import ScreenHebergement from './screens/ScreenHebergement.jsx';
 import ScreenActivites from './screens/ScreenActivites.jsx';
+import ScreenPassengers from './screens/ScreenPassengers.jsx';
+import { getFavoris, toggleFavori } from './services/favorisService.js';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -32,7 +34,13 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('vv_user')) || null; } catch { return null; }
   });
   const [favorites, setFavorites] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('vv_favorites')) || []; } catch { return []; }
+    try {
+      const raw = JSON.parse(localStorage.getItem('vv_favorites')) || [];
+      // Purge old slug-based favorites (strings) — keep only numeric IDs
+      const clean = raw.filter(v => typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v)));
+      if (clean.length !== raw.length) localStorage.setItem('vv_favorites', JSON.stringify(clean));
+      return clean.map(Number);
+    } catch { return []; }
   });
   const [authMode, setAuthMode] = useState(null);
   const [toast, setToast] = useState('');
@@ -43,12 +51,26 @@ export default function App() {
   const [itinItems, setItinItems] = useState([]);
   const [itinNbVoyageurs, setItinNbVoyageurs] = useState(1);
   const [itinDates, setItinDates] = useState({ depart: '', retour: '' });
+  const [passengers, setPassengers] = useState([]);
 
   const T = VV_I18N[lang];
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  // Sync favorites from DB when user logs in
+  useEffect(() => {
+    if (!user?.id) return;
+    getFavoris(user.id)
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setFavorites(res.data);
+          localStorage.setItem('vv_favorites', JSON.stringify(res.data));
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   const navigate = (s, args = {}) => {
     if (s === 'detail' && args.id) setDetailId(args.id);
@@ -81,6 +103,9 @@ export default function App() {
       localStorage.setItem('vv_favorites', JSON.stringify(next));
       return next;
     });
+    if (user?.id) {
+      toggleFavori(user.id, destId).catch(() => {});
+    }
   };
 
   const onAuth = (userData) => {
@@ -146,8 +171,11 @@ export default function App() {
       {screen === 'cart' && (
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
       )}
+      {screen === 'passengers' && (
+        <ScreenPassengers T={T} lang={lang} cart={cart} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} navigate={navigate} onPassengersSaved={setPassengers} />
+      )}
       {screen === 'payment' && (
-        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => { setCart([]); setItinItems([]); }} user={user} search={search} detailId={detailId} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} itinDates={itinDates} />
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => { setCart([]); setItinItems([]); setPassengers([]); }} user={user} search={search} detailId={detailId} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} itinDates={itinDates} passengers={passengers} />
       )}
       {screen === 'account' && (
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} favorites={favorites} toggleFavorite={toggleFavorite} />
@@ -156,7 +184,7 @@ export default function App() {
         <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'hebergement' && (
-        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
+        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'activites' && (
         <ScreenActivites T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />

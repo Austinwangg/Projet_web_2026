@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
 import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
@@ -9,6 +8,23 @@ import api from '../services/api.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser, favorites = [], toggleFavorite }) {
   const [tab, setTab] = useState('bookings');
+  const [destinations, setDestinations] = useState([]);
+
+  useEffect(() => {
+    api.get('/destinations').then(r => {
+      const raw = Array.isArray(r.data) ? r.data : [];
+      setDestinations(raw.map(d => ({
+        id: d.id,
+        slug: d.slug,
+        city: d.ville,
+        country: d.pays_fr,
+        countryEn: d.pays_en,
+        type: d.type,
+        imageUrl: d.image_url || '',
+        ph: (d.ville || '').toUpperCase(),
+      })));
+    }).catch(() => {});
+  }, []);
 
   // Profil
   const [prenom, setPrenom]           = useState(user?.prenom       || '');
@@ -420,7 +436,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             <div className="grid grid-4">
               {destinations.filter(d => favorites.includes(d.id)).map(d => (
                 <div key={d.id} style={{ position: 'relative' }}>
-                  <button className="dest" onClick={() => navigate('detail', { id: d.id })}>
+                  <button className="dest" onClick={() => navigate('detail', { id: d.slug })}>
                     <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
                     <div className="dest-meta">
                       <div>

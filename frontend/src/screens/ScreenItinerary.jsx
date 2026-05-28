@@ -23,12 +23,6 @@ export default function ScreenItinerary({
   const [loadingState, setLoadingState] = useState('idle');
   const [showSaved, setShowSaved] = useState(false);
 
-  // Voyageurs nommés
-  const [voyageurs, setVoyageurs] = useState([]);
-  const [newPrenom, setNewPrenom] = useState('');
-  const [newNom, setNewNom]       = useState('');
-  const [showVoyageurs, setShowVoy] = useState(false);
-
   const loadUserItineraires = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -76,26 +70,6 @@ export default function ScreenItinerary({
     setItineraireId(saved.id); setNom(saved.nom); setItinItems(saved.items || []);
     setShowSaved(false);
     onToast(lang === 'fr' ? `"${saved.nom}" chargé` : `"${saved.nom}" loaded`);
-  };
-
-  // ── Voyageurs nommés ─────────────────────────────────────────────────────
-  const addVoyageur = () => {
-    const prenom = newPrenom.trim();
-    const nom    = newNom.trim();
-    if (!prenom && !nom) return;
-    const updated = [...voyageurs, { id: Date.now(), prenom, nom }];
-    setVoyageurs(updated);
-    // Mettre à jour le compteur si on dépasse la valeur actuelle
-    if (updated.length > itinNbVoyageurs) setItinNbVoyageurs(updated.length);
-    setNewPrenom(''); setNewNom('');
-  };
-  const removeVoyageur = (id) => {
-    setVoyageurs(prev => {
-      const next = prev.filter(v => v.id !== id);
-      // Réduire le compteur si le nombre de nommés devient inférieur au compteur actuel
-      setItinNbVoyageurs(n => Math.max(next.length, Math.max(1, n - 1)));
-      return next;
-    });
   };
 
   const removeItem = (idx) => setItinItems(prev => prev.filter((_, i) => i !== idx));
@@ -185,14 +159,7 @@ export default function ScreenItinerary({
 
           {/* Nombre de voyageurs */}
           <div>
-            <label className="field-label">
-              {fr ? 'Voyageurs' : 'Travelers'}
-              {voyageurs.length > 0 && (
-                <span className="muted" style={{ fontSize: 11, marginLeft: 6, fontWeight: 400 }}>
-                  ({voyageurs.length} {fr ? 'nommé(s)' : 'named'})
-                </span>
-              )}
-            </label>
+            <label className="field-label">{fr ? 'Voyageurs' : 'Travelers'}</label>
             <div className="row gap-8" style={{ alignItems: 'center', marginTop: 4 }}>
               <button
                 className="btn btn-outline btn-sm"
@@ -205,55 +172,9 @@ export default function ScreenItinerary({
                 style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}
                 onClick={() => setItinNbVoyageurs(n => Math.min(20, n + 1))}
               >+</button>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: 12, marginLeft: 4 }}
-                onClick={() => setShowVoy(v => !v)}
-              >
-                {showVoyageurs
-                  ? (fr ? '▲ Réduire' : '▲ Collapse')
-                  : (fr ? '▼ Nommer' : '▼ Name them')}
-              </button>
             </div>
           </div>
         </div>
-
-        {/* Voyageurs nommés (optionnel, dépliable) */}
-        {showVoyageurs && (
-          <div className="col gap-12 fade-up" style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--line-soft)' }}>
-            {voyageurs.length === 0 ? (
-              <p className="muted" style={{ fontSize: 13 }}>{fr ? 'Aucun voyageur nommé.' : 'No travelers named yet.'}</p>
-            ) : (
-              <div className="col gap-8">
-                {voyageurs.map((v, i) => (
-                  <div key={v.id} className="between" style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)' }}>
-                    <div className="row gap-10" style={{ alignItems: 'center' }}>
-                      <div className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
-                        {(v.prenom?.[0] || '') + (v.nom?.[0] || '')}
-                      </div>
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>{v.prenom} {v.nom}</span>
-                      <span className="mono muted" style={{ fontSize: 11 }}>#{i + 1}</span>
-                    </div>
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)', fontSize: 12 }} onClick={() => removeVoyageur(v.id)}>✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end', marginTop: 4 }}>
-              <div>
-                <label className="field-label">{fr ? 'Prénom' : 'First name'}</label>
-                <input className="input" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={fr ? 'Prénom' : 'First name'} />
-              </div>
-              <div>
-                <label className="field-label">{fr ? 'Nom' : 'Last name'}</label>
-                <input className="input" value={newNom} onChange={e => setNewNom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={fr ? 'Nom' : 'Last name'} />
-              </div>
-              <button className="btn btn-outline" onClick={addVoyageur} disabled={!newPrenom.trim() && !newNom.trim()}>
-                + {fr ? 'Ajouter' : 'Add'}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 56, alignItems: 'flex-start' }}>
@@ -364,7 +285,7 @@ export default function ScreenItinerary({
           <button
             className="btn btn-primary btn-lg"
             style={{ width: '100%' }}
-            onClick={() => navigate('payment')}
+            onClick={() => navigate('passengers')}
             disabled={itinItems.length === 0}
           >
             {T.itinerary.checkout} →
