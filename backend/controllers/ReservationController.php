@@ -55,6 +55,19 @@ class ReservationController {
                 if (!$id) { http_response_code(400); echo json_encode(['error' => 'ID requis']); break; }
                 $data = json_decode(file_get_contents('php://input'), true);
 
+                // Annulation d'une activité individuelle
+                if (isset($data['cancel_activite_id'])) {
+                    $activiteId = (int) $data['cancel_activite_id'];
+                    try {
+                        Reservation::cancelActivite($id, $activiteId);
+                        echo json_encode(['message' => 'Activité annulée'], JSON_UNESCAPED_UNICODE);
+                    } catch (\Exception $e) {
+                        http_response_code(422);
+                        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+                    }
+                    break;
+                }
+
                 try {
                     if (isset($data['statut']) && $data['statut'] === 'annulee') {
                         Reservation::cancel($id);

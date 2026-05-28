@@ -3,7 +3,7 @@ import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
 import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
-import { updateReservationStatus } from '../services/reservationsService.js';
+import { updateReservationStatus, updateReservation, cancelActiviteFromReservation } from '../services/reservationsService.js';
 import { getHebergementReservationsByUser, cancelHebergementReservation } from '../services/hebergementReservationsService.js';
 import api from '../services/api.js';
 
@@ -30,6 +30,18 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [resLoading, setResLoading]     = useState(false);
   const [resActionId, setResActionId]   = useState(null);
 
+  // Modale de modification de réservation
+  const [editModal, setEditModal]       = useState(null); // { reservation }
+  const [editDepart, setEditDepart]     = useState('');
+  const [editRetour, setEditRetour]     = useState('');
+  const [editVoyageurs, setEditVoy]     = useState(1);
+  const [editSaving, setEditSaving]     = useState(false);
+  const [editError, setEditError]       = useState('');
+
+  // Activités par réservation { [resId]: [{ activite_id, nom_fr, nom_en, nb_places }] }
+  const [resActivites, setResActivites]       = useState({});
+  const [cancelActId, setCancelActId]         = useState(null); // { resId, activiteId }
+
   // Réservations hôtels
   const [hotelReservations, setHotelReservations] = useState([]);
   const [hotelResLoading, setHotelResLoading]     = useState(false);
@@ -43,7 +55,20 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     if (tab === 'bookings' && user?.id) {
       setResLoading(true);
       api.get('/reservations', { params: { user_id: user.id } })
-        .then(r => setReservations(r.data))
+        .then(r => {
+          const list = r.data || [];
+          setReservations(list);
+          // Charger les activités de chaque réservation confirmée
+          list.filter(res => res.statut === 'confirmee' || res.statut === 'en_attente').forEach(res => {
+            api.get(`/activites?reservation_id=${res.id}`)
+              .then(detail => {
+                if (Array.isArray(detail.data) && detail.data.length > 0) {
+                  setResActivites(prev => ({ ...prev, [res.id]: detail.data }));
+                }
+              })
+              .catch(() => {});
+          });
+        })
         .catch(() => setReservations([]))
         .finally(() => setResLoading(false));
 
@@ -126,6 +151,75 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
       }).catch(() => {});
     } catch { /* silent */ } finally {
       setHotelResActionId(null);
+    }
+  };
+
+  const openEditModal = (r) => {
+    setEditModal(r);
+    setEditDepart(r.date_depart || '');
+    setEditRetour(r.date_retour || '');
+    setEditVoy(r.nb_voyageurs || 1);
+    setEditError('');
+  };
+
+  const handleEditReservation = async () => {
+    if (!editModal) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      await updateReservation(editModal.id, {
+        date_depart: editDepart,
+        date_retour: editRetour,
+        nb_voyageurs: editVoyageurs,
+      });
+      setReservations(prev => prev.map(x =>
+        x.id === editModal.id
+          ? { ...x, date_depart: editDepart, date_retour: editRetour, nb_voyageurs: editVoyageurs }
+          : x
+      ));
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'booking',
+        titre: lang === 'fr'
+          ? `Réservation modifiée · ${editModal.reference}`
+          : `Booking updated · ${editModal.reference}`,
+        message: lang === 'fr'
+          ? `Votre réservation ${editModal.reference} a été mise à jour : ${editDepart} → ${editRetour}, ${editVoyageurs} voyageur(s).`
+          : `Your booking ${editModal.reference} was updated: ${editDepart} → ${editRetour}, ${editVoyageurs} traveler(s).`,
+      }).catch(() => {});
+      setEditModal(null);
+    } catch (err) {
+      setEditError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la modification.' : 'Update failed.'));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleCancelActivite = async (reservation, activite) => {
+    if (!window.confirm(
+      lang === 'fr'
+        ? `Annuler l'activité "${activite.nom_fr}" de cette réservation ?`
+        : `Cancel activity "${activite.nom_en}" from this booking?`
+    )) return;
+    setCancelActId({ resId: reservation.id, activiteId: activite.activite_id });
+    try {
+      await cancelActiviteFromReservation(reservation.id, activite.activite_id);
+      setResActivites(prev => ({
+        ...prev,
+        [reservation.id]: (prev[reservation.id] || []).filter(a => a.activite_id !== activite.activite_id)
+      }));
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'info',
+        titre: lang === 'fr'
+          ? `Activité annulée · ${reservation.reference}`
+          : `Activity cancelled · ${reservation.reference}`,
+        message: lang === 'fr'
+          ? `L'activité "${activite.nom_fr}" a été retirée de votre réservation ${reservation.reference}.`
+          : `Activity "${activite.nom_en}" was removed from booking ${reservation.reference}.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setCancelActId(null);
     }
   };
 
@@ -236,10 +330,43 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                       </span>
                     </div>
                   )}
+                  {/* Activités annulables individuellement */}
+                  {canCancel && resActivites[r.id]?.length > 0 && (
+                    <div className="col gap-4 mt-8">
+                      <div className="mono muted" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
+                        {lang === 'fr' ? 'ACTIVITÉS' : 'ACTIVITIES'}
+                      </div>
+                      {resActivites[r.id].map(a => (
+                        <div key={a.activite_id} className="row gap-6" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className="tag" style={{ fontSize: 12 }}>
+                            ◇ {lang === 'fr' ? a.nom_fr : a.nom_en}
+                          </span>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 11, color: 'var(--danger)', padding: '1px 6px' }}
+                            disabled={cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id}
+                            onClick={() => handleCancelActivite(r, a)}
+                          >
+                            {cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id
+                              ? '…'
+                              : (lang === 'fr' ? '✕ retirer' : '✕ remove')}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
                   <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
                   <div className="row gap-8">
+                    {canCancel && (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        disabled={resActionId === r.id}
+                        onClick={() => openEditModal(r)}>
+                        {lang === 'fr' ? '✎ Modifier' : '✎ Edit'}
+                      </button>
+                    )}
                     {canCancel && (
                       <button
                         className="btn btn-ghost btn-sm"
@@ -439,6 +566,94 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
               </div>
             ))
           )}
+        </div>
+      )}
+      {/* ── Modale modification réservation ── */}
+      {editModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setEditModal(null); }}
+        >
+          <div className="card-tile" style={{ width: '100%', maxWidth: 480, padding: 32 }}>
+            <div className="between mb-24">
+              <h3 className="serif" style={{ fontSize: 22 }}>
+                {lang === 'fr' ? 'Modifier la réservation' : 'Edit booking'}
+              </h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditModal(null)}>✕</button>
+            </div>
+
+            <div className="mono mb-16" style={{ fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
+              {lang === 'fr' ? 'RÉF.' : 'REF.'} {editModal.reference}
+            </div>
+
+            <div className="col gap-16">
+              <div className="grid grid-2 gap-12">
+                <div>
+                  <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Departure date'}</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={editDepart}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={e => setEditDepart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="field-label">{lang === 'fr' ? 'Date de retour' : 'Return date'}</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={editRetour}
+                    min={editDepart || new Date().toISOString().slice(0, 10)}
+                    onChange={e => setEditRetour(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
+                <div className="row gap-8" style={{ alignItems: 'center', marginTop: 6 }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ width: 32, height: 32, padding: 0 }}
+                    onClick={() => setEditVoy(v => Math.max(1, v - 1))}
+                  >−</button>
+                  <span className="mono" style={{ fontSize: 16, minWidth: 24, textAlign: 'center' }}>{editVoyageurs}</span>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ width: 32, height: 32, padding: 0 }}
+                    onClick={() => setEditVoy(v => Math.min(20, v + 1))}
+                  >+</button>
+                </div>
+              </div>
+
+              {editError && (
+                <div style={{
+                  fontSize: 13, padding: '8px 12px', borderRadius: 8,
+                  color: 'var(--danger)',
+                  background: 'color-mix(in oklab, var(--danger) 10%, transparent)',
+                }}>{editError}</div>
+              )}
+
+              <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                <button className="btn btn-outline" onClick={() => setEditModal(null)}>
+                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleEditReservation}
+                  disabled={editSaving || !editDepart || !editRetour}
+                >
+                  {editSaving ? '…' : (lang === 'fr' ? 'Enregistrer les modifications' : 'Save changes')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </main>
