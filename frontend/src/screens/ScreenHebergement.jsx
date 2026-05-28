@@ -405,15 +405,18 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                       style={{ borderRadius: '12px 12px 0 0', flexShrink: 0 }}
                     />
                     <div style={{ padding: '20px 20px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <span className="tag" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                           {hotel.hotel_type || hotel.type}
                         </span>
-                        <StarsDisplay n={hotel.nb_etoiles || 4} />
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          {hotel.nb_etoiles || 4}★ {lang === 'fr' ? 'catégorie' : 'category'}
+                        </span>
                       </div>
 
-                      {/* Note et avis */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 12.5 }}>
+                      {/* Note et avis — étoiles alignées sur la note moyenne */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, fontSize: 12.5 }}>
+                        <StarsDisplay n={Math.round(note)} />
                         <span style={{ fontWeight: 700, color: '#f59e0b' }}>{note.toFixed(1)}</span>
                         <span className="muted">·</span>
                         <span className="muted">
