@@ -9,7 +9,7 @@ function toLocalISO(d) {
   return `${y}-${m}-${day}`;
 }
 
-export default function ScreenActivites({ T, lang, navigate, addToCart, itineraryMode, addToItinerary, itineraryTravelers }) {
+export default function ScreenActivites({ T, lang, navigate, addToCart, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [activites, setActivites]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [filterCat, setFilterCat]   = useState('');
@@ -282,7 +282,7 @@ export default function ScreenActivites({ T, lang, navigate, addToCart, itinerar
                             onClick={() => {
                               if (isFull) return;
                               setItinModal(a);
-                              setItinDate(toLocalISO(new Date()));
+                              setItinDate(itineraryDates?.depart || toLocalISO(new Date()));
                               setItinNb(itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
                             }}
                           >

@@ -131,7 +131,7 @@ function validateDates(depart, retour) {
   return null;
 }
 
-export default function ScreenTransport({ T, lang, navigate, user, addToCart, searchDates, searchTravelers, itineraryMode, addToItinerary, itineraryTravelers }) {
+export default function ScreenTransport({ T, lang, navigate, user, addToCart, searchDates, searchTravelers, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [destinations, setDestinations] = useState([]);
 
   // Filtres
@@ -141,13 +141,15 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
   const [prixMin, setPrixMin]       = useState('');
   const [sortBy, setSortBy]         = useState('prix_asc');
 
-  // Dates
-  const [dateDepart, setDateDepart] = useState(() =>
-    searchDates?.start instanceof Date ? toLocalISO(searchDates.start) : today()
-  );
-  const [dateRetour, setDateRetour] = useState(() =>
-    searchDates?.end instanceof Date ? toLocalISO(searchDates.end) : addDays(today(), 7)
-  );
+  // Dates — priorité à itineraryDates quand on vient de l'itinéraire
+  const [dateDepart, setDateDepart] = useState(() => {
+    if (itineraryDates?.depart) return itineraryDates.depart;
+    return searchDates?.start instanceof Date ? toLocalISO(searchDates.start) : today();
+  });
+  const [dateRetour, setDateRetour] = useState(() => {
+    if (itineraryDates?.retour) return itineraryDates.retour;
+    return searchDates?.end instanceof Date ? toLocalISO(searchDates.end) : addDays(today(), 7);
+  });
   const [dateError, setDateError]   = useState('');
 
   // Voyageurs — priorité à itineraryTravelers quand on vient de l'itinéraire

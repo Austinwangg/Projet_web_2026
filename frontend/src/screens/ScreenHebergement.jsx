@@ -171,7 +171,7 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
   );
 }
 
-export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, itineraryMode, addToItinerary, itineraryTravelers }) {
+export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -190,6 +190,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(null);
+
+  const todayISO = toLocalISO(new Date());
 
   useEffect(() => {
     setLoading(true);
@@ -219,7 +221,6 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
   const nights = calcNights(dateArrivee, dateDepart);
   // Prix total = nuits × prix/nuit × nombre de personnes
   const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
-  const todayISO = toLocalISO(new Date());
 
   const openBooking = (hotel) => {
     if (!user) { onSignIn('signin'); return; }
@@ -499,8 +500,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
                             onClick={() => {
                               if (complet) return;
                               setItinModal(hotel);
-                              setItinDateArrivee('');
-                              setItinDateDepart('');
+                              setItinDateArrivee(itineraryDates?.depart || '');
+                              setItinDateDepart(itineraryDates?.retour || '');
                               setItinNbPersonnes(itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
                             }}
                           >
