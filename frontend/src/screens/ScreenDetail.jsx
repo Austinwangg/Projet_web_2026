@@ -32,8 +32,8 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
   const [selectedTransport, setSelectedTransport] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedActivities, setSelectedActivities] = useState([]);
-  const isFavorite = favorites.includes(destId);
-  const handleFavorite = () => { if (toggleFavorite) toggleFavorite(destId); };
+  const isFavorite = dest ? favorites.includes(dest.id) : false;
+  const handleFavorite = () => { if (toggleFavorite && dest) toggleFavorite(dest.id); };
 
   // Dates et voyageurs — pré-remplir depuis la recherche si disponible
   const [dateDepart, setDateDepart] = useState(() => {

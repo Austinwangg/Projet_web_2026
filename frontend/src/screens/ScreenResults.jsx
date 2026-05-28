@@ -308,19 +308,19 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
                   )}
                   {!itineraryMode && (
                     <button
-                      onClick={e => { e.stopPropagation(); if (toggleFavorite) toggleFavorite(d.id); }}
+                      onClick={e => { e.stopPropagation(); if (toggleFavorite) toggleFavorite(d.dbId); }}
                       style={{
                         position: 'absolute', top: 10, right: 10,
-                        background: favorites.includes(d.id) ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.85)',
-                        color: favorites.includes(d.id) ? '#fff' : '#ef4444',
+                        background: favorites.includes(d.dbId) ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.85)',
+                        color: favorites.includes(d.dbId) ? '#fff' : '#ef4444',
                         border: 'none', borderRadius: '50%',
                         width: 32, height: 32, cursor: 'pointer', fontSize: 16,
                         display: 'grid', placeItems: 'center',
                         boxShadow: '0 1px 4px rgba(0,0,0,.15)',
                       }}
-                      title={favorites.includes(d.id) ? (lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites') : (lang === 'fr' ? 'Ajouter aux favoris' : 'Add to favorites')}
+                      title={favorites.includes(d.dbId) ? (lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites') : (lang === 'fr' ? 'Ajouter aux favoris' : 'Add to favorites')}
                     >
-                      {favorites.includes(d.id) ? '♥' : '♡'}
+                      {favorites.includes(d.dbId) ? '♥' : '♡'}
                     </button>
                   )}
                   <div className="dest-meta">

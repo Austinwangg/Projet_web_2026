@@ -497,12 +497,14 @@ export default function ScreenActivites({ T, lang, navigate, user, addToCart, it
                     id: `activite-${cartModal.id}-${cartDate}`,
                     kind: 'activity',
                     activiteDbId: cartModal.id,
+                    destSlug: cartModal.slug || '',
                     title: name,
                     sub: `${cartModal.ville || ''}${cartModal.duree ? ' · ' + cartModal.duree : ''} · ${cartDate} · ${cartNb} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
                     price: prix,
                     pricePerUnit: parseFloat(cartModal.prix),
                     priceUnit: 'per_person',
                     nbVoyageurs: cartNb,
+                    dateDepart: cartDate,
                     icon: '◇',
                   }]);
                   if (user?.id) {

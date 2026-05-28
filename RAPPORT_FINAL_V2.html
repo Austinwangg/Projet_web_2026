@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoyageVista — Rapport de projet v2</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+    --ink-faint: #999;
+    --bg: #f5f3ef;
+    --surface: #fff;
+    --line: #e2ddd6;
+    --green: #1e7e34;
+    --green-bg: #e8f5ea;
+    --amber: #92600a;
+    --amber-bg: #fff8e1;
+    --red: #b91c1c;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-bg: #eff6ff;
+    --primary: #2a2a2a;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 13.5px;
+    line-height: 1.65;
+    padding: 48px 24px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ─── HEADER ─── */
+  .report-header {
+    background: var(--ink);
+    color: #fff;
+    border-radius: 16px;
+    padding: 48px 48px 36px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .report-header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .report-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; color: rgba(255,255,255,0.5); margin-bottom: 12px; }
+  .report-title { font-family: 'Instrument Serif', serif; font-size: 52px; line-height: 1.05; font-weight: 400; margin-bottom: 16px; }
+  .report-title em { font-style: italic; color: rgba(255,255,255,0.65); }
+  .report-sub { font-size: 15px; color: rgba(255,255,255,0.65); max-width: 540px; }
+
+  .report-badges { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .badge-done  { background: var(--green-bg); color: var(--green); }
+  .badge-wip   { background: var(--amber-bg); color: var(--amber); }
+  .badge-todo  { background: var(--red-bg);   color: var(--red); }
+  .badge-bug   { background: #fef3c7; color: #78350f; }
+  .badge-bonus { background: var(--blue-bg);  color: var(--blue); }
+
+  /* ─── SCORE BOX ─── */
+  .score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+  }
+  .score-card .val { font-family: 'Instrument Serif', serif; font-size: 44px; line-height: 1; margin-bottom: 6px; }
+  .score-card .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--ink-faint); text-transform: uppercase; }
+  .score-card .sub { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .score-card.green .val { color: var(--green); }
+  .score-card.amber .val { color: var(--amber); }
+  .score-card.blue  .val { color: var(--blue); }
+
+  /* ─── SECTION ─── */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--line);
+    background: #fafaf8;
+  }
+  .section-icon { font-size: 22px; flex-shrink: 0; }
+  .section-title { font-family: 'Instrument Serif', serif; font-size: 22px; font-weight: 400; }
+  .section-pts { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+
+  /* ─── ITEMS ─── */
+  .items { padding: 8px 0; }
+  .item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 28px;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .item:last-child { border-bottom: none; }
+  .item-icon { font-size: 14px; margin-top: 1px; }
+  .item-body {}
+  .item-title { font-weight: 600; font-size: 13.5px; }
+  .item-detail { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; line-height: 1.5; }
+  .item-detail code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #f0ede8; padding: 1px 5px; border-radius: 4px; }
+  .item-status {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    padding: 3px 10px; border-radius: 100px; white-space: nowrap; align-self: flex-start; margin-top: 2px;
+  }
+  .s-done  { background: var(--green-bg); color: var(--green); }
+  .s-wip   { background: var(--amber-bg); color: var(--amber); }
+  .s-todo  { background: var(--red-bg);   color: var(--red); }
+  .s-fixed { background: #fef3c7; color: #78350f; }
+  .s-bonus { background: var(--blue-bg);  color: var(--blue); }
+  .s-partial { background: #f0fdf4; color: #166534; }
+
+  /* ─── BUGS SECTION ─── */
+  .bugs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .bug-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .bug-header { padding: 14px 18px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .bug-header.fixed { background: var(--green-bg); color: var(--green); }
+  .bug-body { padding: 14px 18px; background: var(--surface); font-size: 12.5px; line-height: 1.6; }
+  .bug-body strong { color: var(--ink); }
+  .bug-body code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #f0ede8; padding: 1px 5px; border-radius: 4px; }
+  .bug-body .arrow { color: var(--green); font-weight: 600; }
+
+  /* ─── IMPROVEMENTS ─── */
+  .improve-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .improve-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    background: var(--surface);
+  }
+  .improve-prio { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 8px; }
+  .prio-high { color: var(--red); }
+  .prio-med  { color: var(--amber); }
+  .prio-low  { color: var(--blue); }
+  .improve-title { font-weight: 600; font-size: 13.5px; margin-bottom: 6px; }
+  .improve-desc { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ─── STACK TABLE ─── */
+  .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .stack-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    background: var(--surface);
+  }
+  .stack-card h4 { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 12px; }
+  .stack-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0ede8; font-size: 13px; }
+  .stack-row:last-child { border-bottom: none; }
+  .stack-row .key { color: var(--ink-soft); }
+  .stack-row .val { font-weight: 600; }
+
+  /* ─── TIMELINE ─── */
+  .timeline { padding: 4px 0; }
+  .tl-item { display: flex; gap: 16px; padding: 10px 28px; }
+  .tl-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .tl-dot.green { background: var(--green); }
+  .tl-dot.amber { background: #f59e0b; }
+  .tl-dot.red   { background: var(--red); }
+  .tl-content { flex: 1; }
+  .tl-label { font-weight: 600; font-size: 13.5px; }
+  .tl-sub { font-size: 12.5px; color: var(--ink-soft); }
+
+  /* ─── FOOTER ─── */
+  .report-footer {
+    margin-top: 40px;
+    padding: 28px 32px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .report-footer strong { color: var(--ink); }
+
+  @media print {
+    body { padding: 0; background: #fff; }
+    .page { max-width: 100%; }
+    .section { break-inside: avoid; }
+    .bugs-grid { break-inside: avoid; }
+    .score-grid { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <div class="report-header">
+    <div class="report-meta">SUJET 4 · PROJET WEB 2026 · RAPPORT TECHNIQUE V2 · 2026-05-28</div>
+    <h1 class="report-title">VoyageVista<br><em>Rapport de projet</em></h1>
+    <p class="report-sub">
+      Application de planification de voyage tout-en-un. React + Vite · PHP REST API · MySQL.
+      Correction de bugs, état des fonctionnalités et pistes d'amélioration.
+    </p>
+    <div class="report-badges">
+      <span class="badge badge-done">✓ Fait</span>
+      <span class="badge badge-wip">◐ Partiel</span>
+      <span class="badge badge-todo">✗ Non fait</span>
+      <span class="badge badge-bug">⚡ Bug corrigé</span>
+      <span class="badge badge-bonus">★ Bonus</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ SCORE ESTIMÉ ═══════════ -->
+  <div class="score-grid">
+    <div class="score-card green">
+      <div class="val">~58</div>
+      <div class="lbl">Points estimés</div>
+      <div class="sub">Sur 75 points</div>
+    </div>
+    <div class="score-card amber">
+      <div class="val">+3</div>
+      <div class="lbl">Bonus potentiels</div>
+      <div class="sub">Favoris, dark mode, voyageurs nommés</div>
+    </div>
+    <div class="score-card blue">
+      <div class="val">2</div>
+      <div class="lbl">Bugs corrigés</div>
+      <div class="sub">Ce sprint (28 mai 2026)</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ BUGS CORRIGÉS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">⚡</div>
+      <div class="section-title">Bugs corrigés — Sprint du 28 mai 2026</div>
+    </div>
+    <div style="padding: 20px 28px;">
+      <div class="bugs-grid">
+
+        <div class="bug-card">
+          <div class="bug-header fixed">⚡ Bug 1 — Mauvaises données dans Mes Réservations</div>
+          <div class="bug-body">
+            <strong>Symptôme :</strong> Après réservation d'une activité seule (sans transport/hébergement), "Mes Réservations" affichait la mauvaise destination (ex: Shanghai par défaut).<br><br>
+            <strong>Cause :</strong> L'item activité ajouté au panier ne portait pas <code>destSlug</code>. <code>ScreenPayment</code> se rabattait alors sur <code>detailId</code> (dernière page de détail visitée) pour résoudre la <code>destination_id</code>.<br><br>
+            <span class="arrow">→ Fix :</span> Ajout de <code>destSlug: cartModal.slug</code> et <code>dateDepart: cartDate</code> dans l'item panier de <code>ScreenActivites.jsx</code>.
+          </div>
+        </div>
+
+        <div class="bug-card">
+          <div class="bug-header fixed">⚡ Bug 2 — Calendrier Transport ne suit pas la souris</div>
+          <div class="bug-body">
+            <strong>Symptôme :</strong> Dans la page Transport, le calendrier de sélection de dates s'affichait mal (position incorrecte) et ne recalculait pas sa position lors du déplacement de la souris.<br><br>
+            <strong>Cause :</strong> Le <code>popoverStyle</code> était initialisé à <code>{}</code> (position: absolute CSS), puis mis à jour en <code>position: fixed</code> dans un <code>useEffect</code> → flash et décalage. Le clamp horizontal manquait aussi (débordement du bord droit).<br><br>
+            <span class="arrow">→ Fix :</span> Calcul de la position <em>avant</em> ouverture (dans le <code>onClick</code>) via <code>calcPopoverStyle()</code>, clamp bord droit, et <code>maxWidth: 95vw</code> dans <code>DateRangePicker.jsx</code>.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ NAVIGATION & UX ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🧭</div>
+      <div class="section-title">Navigation générale & expérience utilisateur</div>
+      <div class="section-pts">5 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Accès aux différents espaces de la plateforme</div>
+          <div class="item-detail">Header avec liens vers Destinations, Hébergements, Activités, Transport, Itinéraire. Routing géré dans <code>App.jsx</code> via <code>screen</code> state.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Navigation fluide entre les modules</div>
+          <div class="item-detail">Transitions fade-up, stepper de paiement, boutons retour cohérents, scroll to top automatique à chaque changement d'écran. Aucune erreur visible en navigation normale.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 3/3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ GESTION UTILISATEURS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">👤</div>
+      <div class="section-title">Gestion des utilisateurs</div>
+      <div class="section-pts">6 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Création d'un compte utilisateur</div>
+          <div class="item-detail">Formulaire dans <code>AuthModal.jsx</code>, endpoint POST <code>/auth</code>, hash bcrypt en BDD.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 1/1</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Connexion / Déconnexion utilisateur</div>
+          <div class="item-detail">Session persistée dans <code>localStorage</code> (clé <code>vv_user</code>). Déconnexion efface le storage et redirige vers l'accueil.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Modification & consultation du profil utilisateur</div>
+          <div class="item-detail">Onglet "Profil" dans <code>ScreenAccount.jsx</code> : prénom, nom, email, téléphone, date de naissance. Modification du mot de passe séparée. Enregistrement via PUT <code>/auth</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 3/3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ DESTINATIONS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🌍</div>
+      <div class="section-title">Destinations & offres touristiques</div>
+      <div class="section-pts">12 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Consultation des destinations</div>
+          <div class="item-detail">Grille de cards sur <code>ScreenHome.jsx</code> et <code>ScreenResults.jsx</code>. Données depuis <code>/destinations</code>. Images générées par <code>Placeholder</code> ou URL externe.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Recherche de destinations</div>
+          <div class="item-detail">Barre de recherche libre sur <code>ScreenResults.jsx</code>, filtrage en temps réel côté client sur ville, pays, description.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Filtrage & tri des destinations</div>
+          <div class="item-detail">Filtres par type de séjour (plage, montagne, ville…), fourchette de prix, note minimale. Tri par prix et pertinence.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Consultation détaillée d'un séjour</div>
+          <div class="item-detail"><code>ScreenDetail.jsx</code> affiche destination, hébergements disponibles, transports, activités, prix et disponibilités. Book-card avec calcul dynamique.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Ajout d'une destination / offre touristique</div>
+          <div class="item-detail">Wizard 4 étapes dans <code>ScreenAdmin.jsx</code> : destination → hébergements → transports → activités. POST <code>/admin</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Suppression d'une offre touristique</div>
+          <div class="item-detail">Bouton "Supprimer" dans l'onglet admin Offres → DELETE <code>/admin?type=destination&id=…</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TRANSPORT ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">✈️</div>
+      <div class="section-title">Transport & planification des trajets</div>
+      <div class="section-pts">10 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Recherche de moyens de transport</div>
+          <div class="item-detail">Page dédiée <code>ScreenTransport.jsx</code>. Filtres : destination, type (avion/train/bus/voiture), fourchette de prix, voyageurs. 38 trajets affichés au chargement.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Sélection d'un trajet & ajout au séjour</div>
+          <div class="item-detail">Clic sur une card → panneau d'action "Ajouter au panier". Logos des compagnies aériennes via Google Favicons.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">⚡</div>
+        <div class="item-body">
+          <div class="item-title">Gestion des dates de trajet</div>
+          <div class="item-detail">Validation côté client (date passée, retour ≤ départ) et côté backend (<code>Reservation::validateDates()</code>). DateRangePicker double-calendrier. <strong>Bug de positionnement corrigé ce sprint.</strong></div>
+        </div>
+        <span class="item-status s-fixed">CORRIGÉ · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Affichage des disponibilités transport</div>
+          <div class="item-detail">Nombre de places restantes affiché en vert/rouge. Avertissement ⚠ si ≤ 5 places. Décrémentation à la réservation, restitution à l'annulation.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">🟡</div>
+        <div class="item-body">
+          <div class="item-title">Annulation d'un trajet réservé</div>
+          <div class="item-detail">L'annulation de la réservation complète restitue les places transport (<code>Reservation::cancel()</code>). Pas d'annulation <em>individuelle</em> du transport sans annuler toute la réservation.</div>
+        </div>
+        <span class="item-status s-wip">PARTIEL · 1/2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ HÉBERGEMENTS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🏨</div>
+      <div class="section-title">Hébergements & réservations</div>
+      <div class="section-pts">12 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Consultation & recherche / filtrage des hébergements</div>
+          <div class="item-detail"><code>ScreenHebergement.jsx</code> : filtres par destination, type, prix max, étoiles. Affichage des disponibilités en temps réel.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 4/4</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Réservation d'un hébergement</div>
+          <div class="item-detail">Modale de réservation avec dates et nb personnes. POST <code>/reservations_hebergement</code>. Référence <code>VVH-XXXXXX</code> générée. Notification créée automatiquement.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Gestion des disponibilités hébergement</div>
+          <div class="item-detail"><code>Hebergement::isAvailable()</code> vérifie <code>chambres_dispo</code>. Décrémentation à la réservation, incrément à l'annulation. Hébergements indisponibles visibles mais bloqués.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Modification & annulation d'une réservation hôtel</div>
+          <div class="item-detail">Depuis "Mes Réservations" (onglet Hôtels). Annulation via PUT → statut <code>annulee</code>, restitution automatique des chambres.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 4/4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ ACTIVITÉS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🎯</div>
+      <div class="section-title">Activités & organisation des expériences</div>
+      <div class="section-pts">8 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Consultation des activités</div>
+          <div class="item-detail"><code>ScreenActivites.jsx</code> : catalogue groupé par pays, images, durée, places restantes. Filtres : recherche libre, pays, catégorie, chips rapides.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">⚡</div>
+        <div class="item-body">
+          <div class="item-title">Inscription à une activité (ajout au séjour)</div>
+          <div class="item-detail">Mini-modale date + nb personnes + prix. <strong>Bug corrigé ce sprint :</strong> <code>destSlug</code> désormais transmis au panier pour une résolution correcte de la destination lors du paiement.</div>
+        </div>
+        <span class="item-status s-fixed">CORRIGÉ · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Gestion des capacités des activités</div>
+          <div class="item-detail">Badge "COMPLET / SOLD OUT" si <code>places_restantes ≤ 0</div>. Bouton désactivé. Validation côté backend via <code>Activite::isAvailable()</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Annulation d'une activité réservée</div>
+          <div class="item-detail">Bouton "✕ retirer" par activité dans "Mes Réservations". PUT <code>/reservations?id=…</code> avec <code>cancel_activite_id</code> → suppression de <code>reservation_activites</code> + restitution des places.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ ITINÉRAIRES ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🗺️</div>
+      <div class="section-title">Itinéraires & composition de séjour</div>
+      <div class="section-pts">10 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Création d'un itinéraire</div>
+          <div class="item-detail"><code>ScreenItinerary.jsx</code> : nom, dates, nb voyageurs. Sauvegarde en BDD via POST <code>/itineraires</code>. Chargement des itinéraires existants.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Ajout transports / hébergements / activités à l'itinéraire</div>
+          <div class="item-detail">Mode "sélection itinéraire" (bandeau jaune) sur toutes les pages. Bouton "+ Ajouter à l'itinéraire" → retour automatique sur l'itinéraire.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 6/6</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Calcul automatique du coût total</div>
+          <div class="item-detail">Subtotal + 6 % taxes calculé en temps réel dans <code>ScreenItinerary.jsx</code> et <code>ScreenPayment.jsx</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Suppression d'un itinéraire</div>
+          <div class="item-detail">Bouton "Supprimer" dans la liste des itinéraires sauvegardés → DELETE <code>/itineraires?id=…</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ PANIER & PAIEMENT ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🛒</div>
+      <div class="section-title">Panier de voyage & validation des réservations</div>
+      <div class="section-pts">8 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Ajout d'éléments au panier</div>
+          <div class="item-detail">Vol, hôtel, activité ajoutables depuis leurs pages respectives. Dédoublonnage par ID. Toast de confirmation.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Modification & suppression d'un élément du panier</div>
+          <div class="item-detail">Bouton ✕ par ligne dans <code>ScreenCart.jsx</code>. Recalcul immédiat du total.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Validation & paiement de réservation</div>
+          <div class="item-detail">Stepper 4 étapes. Écran de paiement simulé : carte Visa, PayPal, virement SEPA. POST <code>/reservations</code> avec toutes les relations. Référence <code>VV-XXXXXXX</code> générée. Page de confirmation.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 4/4</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ NOTIFICATIONS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🔔</div>
+      <div class="section-title">Notifications</div>
+      <div class="section-pts">4 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Déclenchement automatique après réservation / annulation</div>
+          <div class="item-detail">Notification créée côté frontend après chaque action significative (achat, annulation voyage, annulation hôtel, annulation activité, ajout transport/activité au panier).</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Consultation & gestion de l'état des notifications</div>
+          <div class="item-detail">Onglet "Notifications" dans Mon Compte. Compteur non-lues dans l'onglet. "Marquer comme lu" individuel et "Tout marquer lu". Suppression individuelle.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 2/2</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ FONCTIONNALITÉS AVANCÉES ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">⚙️</div>
+      <div class="section-title">Fonctionnalités diverses & gestion avancée</div>
+      <div class="section-pts">6 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Ajout / retrait d'un administrateur ou gestionnaire</div>
+          <div class="item-detail">Onglet "Utilisateurs" dans <code>ScreenAdmin.jsx</code>. Bouton "Promouvoir admin" / "Rétrograder". PATCH <code>/admin?action=set_role</code>.</div>
+        </div>
+        <span class="item-status s-done">FAIT · 3/3</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">🟡</div>
+        <div class="item-body">
+          <div class="item-title">Gestion des voyageurs associés à un séjour</div>
+          <div class="item-detail">Panneau "Voyageurs nominatifs" dans <code>ScreenItinerary.jsx</code> : ajout/suppression de voyageurs nommés (prénom + nom). <strong>Non persisté en BDD</strong> (table <code>reservation_voyageurs</code> existe mais non utilisée).</div>
+        </div>
+        <span class="item-status s-wip">PARTIEL · 0.5/1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ BONUS ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">★</div>
+      <div class="section-title">Fonctionnalités supplémentaires (Bonus)</div>
+      <div class="section-pts">max +5 pts</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Favoris de destinations</div>
+          <div class="item-detail">Bouton ♥ sur chaque carte destination. Persisté dans <code>localStorage</code>. Onglet "Favoris" dans Mon Compte avec grille des destinations sauvegardées.</div>
+        </div>
+        <span class="item-status s-bonus">BONUS +1</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Mode sombre (Dark Mode)</div>
+          <div class="item-detail">Toggle ◑ dans le header. CSS custom properties (<code>data-theme="dark"</code>). Application sur l'ensemble de l'UI.</div>
+        </div>
+        <span class="item-status s-bonus">BONUS +1</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">✅</div>
+        <div class="item-body">
+          <div class="item-title">Interface bilingue FR / EN</div>
+          <div class="item-detail">Bascule FR/EN dans le header. Système i18n complet (<code>i18n.js</code>) couvrant toutes les pages, labels, messages et dates.</div>
+        </div>
+        <span class="item-status s-bonus">BONUS +1</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">🟡</div>
+        <div class="item-body">
+          <div class="item-title">Voyageurs nominatifs dans l'itinéraire</div>
+          <div class="item-detail">Ajout/suppression de voyageurs nommés dans l'itinéraire. Non persisté en BDD à ce stade.</div>
+        </div>
+        <span class="item-status s-wip">EN COURS</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">❌</div>
+        <div class="item-body">
+          <div class="item-title">Génération PDF d'itinéraire utilisateur</div>
+          <div class="item-detail">Non implémenté côté client. Techniquement faisable avec <code>window.print()</code> ou librairie <code>jsPDF</code>.</div>
+        </div>
+        <span class="item-status s-todo">NON FAIT</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ NON IMPLÉMENTÉ ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">❌</div>
+      <div class="section-title">Non implémenté</div>
+    </div>
+    <div class="items">
+      <div class="item">
+        <div class="item-icon">❌</div>
+        <div class="item-body">
+          <div class="item-title">Annulation individuelle d'un transport réservé</div>
+          <div class="item-detail">Seule l'annulation totale de la réservation est possible. Un bouton "Retirer transport" par ligne de transport dans Mon Compte permettrait de gérer les changements de trajet.</div>
+        </div>
+        <span class="item-status s-todo">NON FAIT</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">❌</div>
+        <div class="item-body">
+          <div class="item-title">Favoris persistés en BDD</div>
+          <div class="item-detail">Les favoris sont stockés dans <code>localStorage</code> uniquement. Non synchronisés entre appareils.</div>
+        </div>
+        <span class="item-status s-todo">NON FAIT</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">❌</div>
+        <div class="item-body">
+          <div class="item-title">Voyageurs nominatifs persistés en BDD</div>
+          <div class="item-detail">La table <code>reservation_voyageurs</code> existe en BDD mais n'est pas utilisée.</div>
+        </div>
+        <span class="item-status s-todo">NON FAIT</span>
+      </div>
+      <div class="item">
+        <div class="item-icon">❌</div>
+        <div class="item-body">
+          <div class="item-title">Météo en temps réel, conversion de devises, chatbot</div>
+          <div class="item-detail">Fonctionnalités bonus non implémentées (API OpenWeather, ExchangeRate, etc.).</div>
+        </div>
+        <span class="item-status s-todo">NON FAIT</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ PISTES D'AMÉLIORATION ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">💡</div>
+      <div class="section-title">Pistes d'amélioration prioritaires</div>
+    </div>
+    <div style="padding: 20px 28px;">
+      <div class="improve-grid">
+
+        <div class="improve-card">
+          <div class="improve-prio prio-high">PRIORITÉ HAUTE</div>
+          <div class="improve-title">Annulation individuelle du transport</div>
+          <div class="improve-desc">Ajouter un bouton "Retirer le transport" par entrée dans "Mes Voyages". Backend : PUT <code>/reservations?id=X</code> avec <code>{"transport_id": null}</code> + restitution des places.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-high">PRIORITÉ HAUTE</div>
+          <div class="improve-title">Voyageurs nominatifs → BDD</div>
+          <div class="improve-desc">La table <code>reservation_voyageurs</code> existe. Il suffit d'ajouter un endpoint POST/DELETE pour persister les noms saisis dans <code>ScreenItinerary.jsx</code>.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-med">PRIORITÉ MOYENNE</div>
+          <div class="improve-title">Favoris persistés en BDD</div>
+          <div class="improve-desc">Créer une table <code>favoris (utilisateur_id, destination_id)</code>. Synchronisation au login. Actuellement perdu si on change de navigateur.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-med">PRIORITÉ MOYENNE</div>
+          <div class="improve-title">Génération PDF d'itinéraire</div>
+          <div class="improve-desc">Bouton "Télécharger PDF" dans <code>ScreenItinerary.jsx</code> via <code>window.print()</code> avec CSS @media print dédié. Très visible lors de la démo.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-med">PRIORITÉ MOYENNE</div>
+          <div class="improve-title">Météo sur les pages destination</div>
+          <div class="improve-desc">Widget météo dans <code>ScreenDetail.jsx</code> via API OpenWeatherMap (gratuite). Affiche la météo de la ville cible. +1 point bonus.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-low">PRIORITÉ BASSE</div>
+          <div class="improve-title">Pagination des résultats</div>
+          <div class="improve-desc">Actuellement tous les résultats sont chargés d'un coup. Ajouter une pagination côté backend (<code>LIMIT/OFFSET</code>) améliorerait les performances et l'UX.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-low">PRIORITÉ BASSE</div>
+          <div class="improve-title">Comparaison de séjours</div>
+          <div class="improve-desc">Permettre de sélectionner 2–3 destinations et afficher un tableau comparatif (prix, durée, avis, activités). Fonctionnalité bonus +1 pt.</div>
+        </div>
+
+        <div class="improve-card">
+          <div class="improve-prio prio-low">PRIORITÉ BASSE</div>
+          <div class="improve-title">Destination manquante sur activité seule</div>
+          <div class="improve-desc">Si <code>activite.slug</code> est null en BDD, le paiement peut échouer pour une activité sans transport ni hébergement. S'assurer que chaque destination a un slug non vide.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ STACK TECHNIQUE ═══════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🛠️</div>
+      <div class="section-title">Stack technique</div>
+    </div>
+    <div style="padding: 20px 28px;">
+      <div class="stack-grid">
+        <div class="stack-card">
+          <h4>Frontend</h4>
+          <div class="stack-row"><span class="key">Framework</span><span class="val">React 18 + Vite</span></div>
+          <div class="stack-row"><span class="key">Port</span><span class="val">localhost:3000</span></div>
+          <div class="stack-row"><span class="key">Style</span><span class="val">CSS custom (voyagevista.css)</span></div>
+          <div class="stack-row"><span class="key">i18n</span><span class="val">FR / EN intégré</span></div>
+          <div class="stack-row"><span class="key">Composants clés</span><span class="val">DateRangePicker, Placeholder, Toast</span></div>
+        </div>
+        <div class="stack-card">
+          <h4>Backend</h4>
+          <div class="stack-row"><span class="key">Runtime</span><span class="val">PHP 8 (MAMP)</span></div>
+          <div class="stack-row"><span class="key">Port Apache</span><span class="val">localhost:81</span></div>
+          <div class="stack-row"><span class="key">Architecture</span><span class="val">REST API MVC (controllers + models)</span></div>
+          <div class="stack-row"><span class="key">Base de données</span><span class="val">MySQL · voyagevista · 13 tables</span></div>
+          <div class="stack-row"><span class="key">Auth</span><span class="val">bcrypt + localStorage session</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <div class="report-footer">
+    <div>
+      <strong>VoyageVista</strong> · Sujet 4 · Projet Web 2026<br>
+      Rapport généré le <strong>28 mai 2026</strong>
+    </div>
+    <div style="text-align: right;">
+      Score estimé : <strong>~58 / 75 pts</strong><br>
+      Bonus potentiels : <strong>+3 pts</strong>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

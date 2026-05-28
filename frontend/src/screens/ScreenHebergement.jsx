@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api.js';
-import { createHebergementReservation } from '../services/hebergementReservationsService.js';
-import { createNotification } from '../services/notificationService.js';
 import Placeholder from '../components/Placeholder.jsx';
 
 function toLocalISO(d) {
@@ -171,7 +169,7 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
   );
 }
 
-export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
+export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, addToCart, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -187,9 +185,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
   const [itinDateArrivee, setItinDateArrivee] = useState('');
   const [itinDateDepart, setItinDateDepart] = useState('');
   const [itinNbPersonnes, setItinNbPersonnes] = useState(1);
-  const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState(null);
 
   const todayISO = toLocalISO(new Date());
 
@@ -235,10 +231,9 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
   const closeBooking = () => {
     setBookingHotel(null);
     setBookingError('');
-    setBookingSuccess(null);
   };
 
-  const handleBook = async () => {
+  const handleBook = () => {
     if (!dateArrivee || !dateDepart) {
       setBookingError(lang === 'fr' ? "Veuillez renseigner les dates d'arrivée et de départ." : 'Please fill in the check-in and check-out dates.');
       return;
@@ -247,41 +242,23 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
       setBookingError(lang === 'fr' ? "La date de départ doit être après la date d'arrivée." : 'Check-out must be after check-in.');
       return;
     }
-    setBookingLoading(true);
-    setBookingError('');
-    try {
-      const res = await createHebergementReservation({
-        utilisateur_id: user.id,
-        hebergement_id: bookingHotel.id,
-        date_arrivee: dateArrivee,
-        date_depart: dateDepart,
-        nb_personnes: nbPersonnes,
-        montant_total: total,
-      });
 
-      createNotification({
-        utilisateur_id: user.id,
-        type: 'booking',
-        titre: lang === 'fr'
-          ? `Hôtel réservé — ${bookingHotel.nom}`
-          : `Hotel booked — ${bookingHotel.nom}`,
-        message: lang === 'fr'
-          ? `Réservation ${res.data.reference} confirmée · ${nights} nuit${nights > 1 ? 's' : ''} · ${nbPersonnes} pers. · ${total.toLocaleString('fr-FR')} €`
-          : `Booking ${res.data.reference} confirmed · ${nights} night${nights > 1 ? 's' : ''} · ${nbPersonnes} guest(s) · €${total.toLocaleString('en-US')}`,
-      }).catch(() => {});
+    addToCart([{
+      id: `hotel-${bookingHotel.id}-${dateArrivee}`,
+      kind: 'hotel',
+      hebergementDbId: bookingHotel.id,
+      destSlug: bookingHotel.dest_slug || '',
+      title: bookingHotel.nom,
+      sub: `${nights} nuit${nights > 1 ? 's' : ''} · ${nbPersonnes} pers. · ${dateArrivee} → ${dateDepart}`,
+      price: total,
+      priceUnit: 'total',
+      nbVoyageurs: nbPersonnes,
+      dateDepart: dateArrivee,
+      dateRetour: dateDepart,
+      icon: '🏨',
+    }]);
 
-      setBookingSuccess(res.data.reference);
-      // Décrémente les places disponibles du nombre de personnes réservées
-      setAllHotels(prev => prev.map(h =>
-        h.id === bookingHotel.id
-          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
-          : h
-      ));
-    } catch (err) {
-      setBookingError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la réservation.' : 'Booking error.'));
-    } finally {
-      setBookingLoading(false);
-    }
+    closeBooking();
   };
 
   const availColor = (n) => {
@@ -645,33 +622,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
               overflowY: 'auto',
             }}
           >
-            {bookingSuccess ? (
-              /* ── Succès ── */
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 52, marginBottom: 12 }}>✅</div>
-                <h3 className="serif" style={{ fontSize: 28, marginBottom: 8 }}>
-                  {lang === 'fr' ? 'Réservation confirmée !' : 'Booking confirmed!'}
-                </h3>
-                <p className="muted" style={{ fontSize: 14, marginBottom: 4 }}>
-                  {lang === 'fr' ? 'Référence' : 'Reference'}{' '}
-                  <strong className="mono">{bookingSuccess}</strong>
-                </p>
-                <p className="muted" style={{ fontSize: 13 }}>
-                  {lang === 'fr'
-                    ? 'Votre réservation est visible dans votre profil. Une notification a été envoyée.'
-                    : 'Your booking is visible in your profile. A notification has been sent.'}
-                </p>
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
-                  <button className="btn btn-outline" onClick={closeBooking}>
-                    {lang === 'fr' ? 'Continuer' : 'Continue'}
-                  </button>
-                  <button className="btn btn-primary" onClick={() => { closeBooking(); navigate('account'); }}>
-                    {lang === 'fr' ? 'Voir mes réservations' : 'View my bookings'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* ── Formulaire ── */
+            {/* ── Formulaire ── */}
+            {(
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                   <div>
@@ -756,14 +708,12 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
                   <button
                     className="btn btn-primary"
                     style={{ width: '100%', marginTop: 4 }}
-                    disabled={bookingLoading || nights <= 0}
+                    disabled={nights <= 0}
                     onClick={handleBook}
                   >
-                    {bookingLoading
-                      ? '…'
-                      : nights > 0
-                        ? `${lang === 'fr' ? 'Confirmer' : 'Confirm'} · ${total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €`
-                        : (lang === 'fr' ? 'Choisissez les dates' : 'Select the dates')}
+                    {nights > 0
+                      ? `🛒 ${lang === 'fr' ? 'Ajouter au panier' : 'Add to cart'} · ${total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €`
+                      : (lang === 'fr' ? 'Choisissez les dates' : 'Select the dates')}
                   </button>
                 </div>
               </>

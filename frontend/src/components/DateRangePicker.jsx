@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 function toLocalISO(d) {
   const y = d.getFullYear();
@@ -76,6 +77,7 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
   const [popoverStyle, setPopoverStyle] = useState({});
   const ref = useRef(null);
   const btnRef = useRef(null);
+  const popoverRef = useRef(null);
 
   const start = parseISO(depart);
   const end   = parseISO(retour);
@@ -83,44 +85,39 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
   const initialView = start || new Date();
   const [view, setView] = useState(new Date(initialView.getFullYear(), initialView.getMonth(), 1));
 
-  // Calcule si le popover doit s'ouvrir vers le haut ou le bas
-  const updatePopoverPosition = () => {
-    if (!btnRef.current) return;
+  const calcPopoverStyle = () => {
+    if (!btnRef.current) return {};
     const rect = btnRef.current.getBoundingClientRect();
+    const popoverW = 580;
+    const popoverH = 400;
     const spaceBelow = window.innerHeight - rect.bottom;
-    const popoverH = 380; // hauteur approximative du calendrier double
-    if (spaceBelow < popoverH && rect.top > popoverH) {
-      // Ouvrir vers le haut
-      setPopoverStyle({
-        position: 'fixed',
-        bottom: window.innerHeight - rect.top + 8,
-        left: rect.left,
-        zIndex: 9999,
-      });
-    } else {
-      // Ouvrir vers le bas (par défaut)
-      setPopoverStyle({
-        position: 'fixed',
-        top: rect.bottom + 8,
-        left: rect.left,
-        zIndex: 9999,
-      });
+    let left = rect.left;
+    // clamp pour ne pas dépasser le bord droit
+    if (left + popoverW > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - popoverW - 8);
     }
+    if (spaceBelow < popoverH && rect.top > popoverH) {
+      return { position: 'fixed', bottom: window.innerHeight - rect.top + 8, left, zIndex: 9999 };
+    }
+    return { position: 'fixed', top: rect.bottom + 8, left, zIndex: 9999 };
   };
 
   useEffect(() => {
     if (!open) return;
-    updatePopoverPosition();
     const onDoc = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        ref.current && !ref.current.contains(e.target) &&
+        popoverRef.current && !popoverRef.current.contains(e.target)
+      ) setOpen(false);
     };
+    const onReposition = () => setPopoverStyle(calcPopoverStyle());
     document.addEventListener('mousedown', onDoc);
-    window.addEventListener('resize', updatePopoverPosition);
-    window.addEventListener('scroll', updatePopoverPosition, true);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
     return () => {
       document.removeEventListener('mousedown', onDoc);
-      window.removeEventListener('resize', updatePopoverPosition);
-      window.removeEventListener('scroll', updatePopoverPosition, true);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
     };
   }, [open]);
 
@@ -172,16 +169,20 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
           background: open ? 'var(--surface-2)' : undefined,
           borderColor: open ? 'var(--ink)' : undefined,
         }}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          if (!open) setPopoverStyle(calcPopoverStyle());
+          setOpen(v => !v);
+        }}
       >
         <span style={{ fontSize: 15 }}>📅</span>
         <span style={{ fontSize: 14, color: start ? 'var(--ink)' : 'var(--ink-faint)' }}>{datesLabel}</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={popoverRef}
           className="popover"
-          style={{ minWidth: 560, ...popoverStyle }}
+          style={{ minWidth: 560, maxWidth: '95vw', ...popoverStyle }}
           onClick={e => e.stopPropagation()}
         >
           <div className="between mb-16">
@@ -206,7 +207,8 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
               {T.search?.apply || (lang === 'fr' ? 'Appliquer' : 'Apply')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
