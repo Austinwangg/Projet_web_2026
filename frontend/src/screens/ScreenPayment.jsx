@@ -53,15 +53,30 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         return `${y}-${m}-${day}`;
       };
 
-      // Resolve destination slug
+      // Resolve destination slug — cherche dans tous les items, prend le premier slug non vide
       const destSlug = fromItinerary
-        ? (itinItems.find(i => i.destSlug)?.destSlug || detailId || 'shanghai')
-        : (cart.find(i => i.destSlug)?.destSlug || detailId || 'shanghai');
+        ? (itinItems.find(i => i.destSlug)?.destSlug || detailId || '')
+        : (cart.find(i => i.destSlug)?.destSlug || detailId || '');
 
       // Get destination_id from backend
-      const destRes = await api.get(`/destinations?slug=${destSlug}`);
-      const destinationId = destRes.data?.id;
-      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable.' : 'Destination not found.');
+      // Si aucun destSlug n'est résolu (itinéraire sans destination), on essaie
+      // de déduire depuis le transport ou l'hébergement via leur destination_id
+      let destinationId = null;
+      if (destSlug) {
+        const destRes = await api.get(`/destinations?slug=${destSlug}`);
+        destinationId = destRes.data?.id || null;
+      }
+      if (!destinationId) {
+        // Fallback : cherche la destination via le transport sélectionné
+        let fallbackTransportId = fromItinerary
+          ? itinItems.find(i => i.type === 'transport')?.ref_id
+          : cart.find(i => i.kind === 'flight')?.transportDbId;
+        if (fallbackTransportId) {
+          const tRes = await api.get(`/transports?id=${fallbackTransportId}`);
+          destinationId = tRes.data?.destination_id || null;
+        }
+      }
+      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable. Vérifiez que votre itinéraire contient une destination valide.' : 'Destination not found. Make sure your itinerary contains a valid destination.');
 
       // Extract IDs selon la source
       let hebergementId = null, transportId = null, activiteIds = [];

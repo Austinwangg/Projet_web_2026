@@ -595,6 +595,7 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
                           addToItinerary({
                             type: 'transport',
                             ref_id: t.id,
+                            destSlug: destinations.find(d => d.id === t.destination_id)?.slug || '',
                             titre: `${t.depart} → ${t.arrivee}`,
                             sous_titre: `${t.compagnie || ''} · ${t.duree || ''} · ${dateDepart} → ${dateRetour}`,
                             prix: parseFloat(t.prix) * nbVoyageurs,

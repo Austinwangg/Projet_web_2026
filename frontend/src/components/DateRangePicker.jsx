@@ -73,7 +73,9 @@ function Calendar({ monthDate, start, end, hover, onPick, onHover, T }) {
 export default function DateRangePicker({ depart, retour, onChangeDates, T, lang, label }) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(null);
+  const [popoverStyle, setPopoverStyle] = useState({});
   const ref = useRef(null);
+  const btnRef = useRef(null);
 
   const start = parseISO(depart);
   const end   = parseISO(retour);
@@ -81,13 +83,45 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
   const initialView = start || new Date();
   const [view, setView] = useState(new Date(initialView.getFullYear(), initialView.getMonth(), 1));
 
+  // Calcule si le popover doit s'ouvrir vers le haut ou le bas
+  const updatePopoverPosition = () => {
+    if (!btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const popoverH = 380; // hauteur approximative du calendrier double
+    if (spaceBelow < popoverH && rect.top > popoverH) {
+      // Ouvrir vers le haut
+      setPopoverStyle({
+        position: 'fixed',
+        bottom: window.innerHeight - rect.top + 8,
+        left: rect.left,
+        zIndex: 9999,
+      });
+    } else {
+      // Ouvrir vers le bas (par défaut)
+      setPopoverStyle({
+        position: 'fixed',
+        top: rect.bottom + 8,
+        left: rect.left,
+        zIndex: 9999,
+      });
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
+    updatePopoverPosition();
     const onDoc = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    window.addEventListener('resize', updatePopoverPosition);
+    window.addEventListener('scroll', updatePopoverPosition, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('resize', updatePopoverPosition);
+      window.removeEventListener('scroll', updatePopoverPosition, true);
+    };
   }, [open]);
 
   const pick = (d) => {
@@ -129,6 +163,7 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
         </label>
       )}
       <button
+        ref={btnRef}
         type="button"
         className="input"
         style={{
@@ -146,7 +181,7 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
       {open && (
         <div
           className="popover"
-          style={{ minWidth: 560, top: 'calc(100% + 8px)', left: 0, zIndex: 9999 }}
+          style={{ minWidth: 560, ...popoverStyle }}
           onClick={e => e.stopPropagation()}
         >
           <div className="between mb-16">

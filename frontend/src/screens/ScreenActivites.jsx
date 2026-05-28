@@ -371,6 +371,7 @@ export default function ScreenActivites({ T, lang, navigate, user, addToCart, it
                   addToItinerary({
                     type: 'activite',
                     ref_id: itinModal.id,
+                    destSlug: itinModal.slug || '',
                     titre: lang === 'fr' ? itinModal.nom_fr : itinModal.nom_en,
                     sous_titre: `${itinModal.ville || ''}${itinModal.duree ? ' · ' + itinModal.duree : ''} · ${itinDate} · ${itinNb} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
                     prix: parseFloat(itinModal.prix) * itinNb,
@@ -499,6 +500,9 @@ export default function ScreenActivites({ T, lang, navigate, user, addToCart, it
                     title: name,
                     sub: `${cartModal.ville || ''}${cartModal.duree ? ' · ' + cartModal.duree : ''} · ${cartDate} · ${cartNb} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
                     price: prix,
+                    pricePerUnit: parseFloat(cartModal.prix),
+                    priceUnit: 'per_person',
+                    nbVoyageurs: cartNb,
                     icon: '◇',
                   }]);
                   if (user?.id) {

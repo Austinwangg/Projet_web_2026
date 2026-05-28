@@ -599,6 +599,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, i
                   addToItinerary({
                     type: 'hebergement',
                     ref_id: itinModal.id,
+                    destSlug: itinModal.dest_slug || '',
                     titre: itinModal.nom,
                     sous_titre: `${itinModal.quartier ? itinModal.quartier + ' · ' : ''}${itinModal.ville} · ${itinDateArrivee} → ${itinDateDepart} · ${itinNbPersonnes} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
                     prix: total,

@@ -158,6 +158,7 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
         price: (parseFloat(a.prix) || 0) * nbVoyageurs,
         pricePerUnit: parseFloat(a.prix) || 0,
         priceUnit: 'per_person',
+        nbVoyageurs,
         icon: '◇',
       });
     });

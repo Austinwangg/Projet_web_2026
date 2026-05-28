@@ -51,9 +51,6 @@ export default function ScreenHome({ T, lang, search, setSearch, navigate, cardS
           <div className="hero-content">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="eyebrow" style={{ color: 'rgba(255,255,255,0.65)' }}>{T.hero.eyebrow}</span>
-              <span className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.14em' }}>
-                N°026 / VOL.II
-              </span>
             </div>
             <h1 className="hero-title">
               {T.hero.titleA} <em>{T.hero.titleB}</em><br />{T.hero.titleC}

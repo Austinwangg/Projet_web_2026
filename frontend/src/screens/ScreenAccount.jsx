@@ -261,18 +261,23 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
           <div className="col gap-16">
           {reservations.map(r => {
             const destSlug = r.slug || '';
-            const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
-            const destName = lang === 'fr' ? (r.ville || destSlug) : (r.pays_en || r.ville || destSlug);
+            const destImg  = r.dest_image || null;
+            const destName = lang === 'fr'
+              ? (r.ville ? (r.pays_fr ? `${r.ville}, ${r.pays_fr}` : r.ville) : (r.slug || ''))
+              : (r.ville ? (r.pays_en ? `${r.ville}, ${r.pays_en}` : r.ville) : (r.slug || ''));
             const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
-                <Placeholder label={destName.toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
+                <Placeholder label={(r.ville || destSlug).toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
                 <div>
                   <div className="row gap-8 mb-4">
                     <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
                     <span className="mono muted" style={{ fontSize: 11 }}>{T.account.ref} {r.reference}</span>
                   </div>
-                  <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>{destName}</div>
+                  <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>
+                    {r.ville || destSlug}
+                    {(lang === 'fr' ? r.pays_fr : r.pays_en) ? ` · ${lang === 'fr' ? r.pays_fr : r.pays_en}` : ''}
+                  </div>
                   <div className="muted mt-4" style={{ fontSize: 13.5 }}>
                     {formatDate(r.date_depart)} → {formatDate(r.date_retour)} · {T.account.travelers(r.nb_voyageurs)}
                   </div>
