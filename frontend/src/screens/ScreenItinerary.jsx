@@ -1,46 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createItineraire, updateItineraire, deleteItineraire, getItinerairesByUser } from '../services/itinerairesService.js';
 
-export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast, pendingItems, clearPendingItems }) {
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function today() { return toLocalISO(new Date()); }
+
+export default function ScreenItinerary({
+  T, lang, navigate, user, onToast,
+  itinItems, setItinItems,
+  itinNbVoyageurs, setItinNbVoyageurs,
+  itinDates, setItinDates,
+}) {
   const [itineraireId, setItineraireId] = useState(null);
   const [nom, setNom] = useState(lang === 'fr' ? 'Mon itinéraire' : 'My itinerary');
-  const [items, setItems] = useState([]);
   const [savedItineraires, setSavedItineraires] = useState([]);
   const [loadingState, setLoadingState] = useState('idle');
   const [showSaved, setShowSaved] = useState(false);
 
-  // Nombre de voyageurs (utilisé pour pré-remplir transport/hébergement/activité)
-  const [nbVoyageurs, setNbVoyageurs] = useState(1);
-
-  // Gestion nominative des voyageurs
+  // Voyageurs nommés
   const [voyageurs, setVoyageurs] = useState([]);
   const [newPrenom, setNewPrenom] = useState('');
   const [newNom, setNewNom]       = useState('');
   const [showVoyageurs, setShowVoy] = useState(false);
-
-  // Build items from cart on mount
-  useEffect(() => {
-    if (cart.length > 0 && items.length === 0) {
-      setItems(cart.map(c => ({
-        type: c.kind === 'flight' ? 'transport' : c.kind === 'hotel' ? 'hebergement' : 'activite',
-        ref_id: null,
-        titre: c.title,
-        sous_titre: c.sub,
-        prix: c.price,
-        icone: c.icon || '◇',
-        date_item: null,
-      })));
-    }
-  }, [cart]);
-
-  // Consume items added via page navigation (fromItinerary flow)
-  useEffect(() => {
-    if (pendingItems && pendingItems.length > 0) {
-      setItems(prev => [...prev, ...pendingItems]);
-      pendingItems.forEach(it => onToast(lang === 'fr' ? `"${it.titre}" ajouté` : `"${it.titre}" added`));
-      clearPendingItems();
-    }
-  }, [pendingItems]);
 
   const loadUserItineraires = useCallback(async () => {
     if (!user?.id) return;
@@ -52,9 +38,8 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
 
   useEffect(() => { loadUserItineraires(); }, [loadUserItineraires]);
 
-
   // ── Totaux ───────────────────────────────────────────────────────────────
-  const subtotal = items.reduce((s, x) => s + Number(x.prix), 0);
+  const subtotal = itinItems.reduce((s, x) => s + Number(x.prix), 0);
   const taxes    = Math.round(subtotal * 0.06);
   const grand    = subtotal + taxes;
 
@@ -63,7 +48,7 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
     if (!user?.id) { onToast(lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Please sign in to save'); return; }
     setLoadingState('saving');
     try {
-      const payload = { utilisateur_id: user.id, nom, items };
+      const payload = { utilisateur_id: user.id, nom, items: itinItems };
       let res;
       if (itineraireId) { res = await updateItineraire(itineraireId, payload); }
       else { res = await createItineraire(payload); setItineraireId(res.data.id); }
@@ -79,36 +64,34 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
     setLoadingState('deleting');
     try {
       await deleteItineraire(itineraireId);
-      setItineraireId(null); setItems([]);
+      setItineraireId(null); setItinItems([]);
       setSavedItineraires(prev => prev.filter(i => i.id !== itineraireId));
       onToast(lang === 'fr' ? 'Itinéraire supprimé' : 'Itinerary deleted');
     } catch { onToast(lang === 'fr' ? 'Erreur lors de la suppression' : 'Delete failed'); }
     finally { setLoadingState('idle'); }
   };
 
-  const handleLoad = async (saved) => {
-    setItineraireId(saved.id); setNom(saved.nom); setItems(saved.items || []);
+  const handleLoad = (saved) => {
+    setItineraireId(saved.id); setNom(saved.nom); setItinItems(saved.items || []);
     setShowSaved(false);
     onToast(lang === 'fr' ? `"${saved.nom}" chargé` : `"${saved.nom}" loaded`);
   };
 
-  // ── Voyageurs ────────────────────────────────────────────────────────────
+  // ── Voyageurs nommés ─────────────────────────────────────────────────────
   const addVoyageur = () => {
     const prenom = newPrenom.trim();
     const nom    = newNom.trim();
     if (!prenom && !nom) return;
     const updated = [...voyageurs, { id: Date.now(), prenom, nom }];
     setVoyageurs(updated);
-    setNbVoyageurs(updated.length);
+    // Mettre à jour le compteur si on dépasse la valeur actuelle
+    if (updated.length > itinNbVoyageurs) setItinNbVoyageurs(updated.length);
     setNewPrenom(''); setNewNom('');
   };
-  const removeVoyageur = (id) => {
-    const updated = voyageurs.filter(v => v.id !== id);
-    setVoyageurs(updated);
-    setNbVoyageurs(Math.max(1, updated.length));
-  };
-  const removeItem  = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
-  const moveItem    = (idx, dir) => setItems(prev => {
+  const removeVoyageur = (id) => setVoyageurs(prev => prev.filter(v => v.id !== id));
+
+  const removeItem = (idx) => setItinItems(prev => prev.filter((_, i) => i !== idx));
+  const moveItem   = (idx, dir) => setItinItems(prev => {
     const next = [...prev];
     const target = idx + dir;
     if (target < 0 || target >= next.length) return prev;
@@ -118,10 +101,11 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
 
   const iconForType = (type) => {
     if (type === 'transport')   return '✈';
-    if (type === 'hebergement') return '⌂';
-    return '◇';
+    if (type === 'hebergement') return '🏨';
+    return '🎯';
   };
 
+  const fr = lang === 'fr';
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>
@@ -136,7 +120,7 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
           </div>
           {savedItineraires.length > 0 && (
             <button className="btn btn-ghost btn-sm" onClick={() => setShowSaved(v => !v)}>
-              {lang === 'fr' ? `Mes itinéraires (${savedItineraires.length})` : `My itineraries (${savedItineraires.length})`}
+              {fr ? `Mes itinéraires (${savedItineraires.length})` : `My itineraries (${savedItineraires.length})`}
             </button>
           )}
         </div>
@@ -146,7 +130,7 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
       {showSaved && (
         <div className="card-tile mb-24 fade-up" style={{ padding: 24 }}>
           <h4 className="serif mb-16" style={{ fontSize: 20 }}>
-            {lang === 'fr' ? 'Itinéraires sauvegardés' : 'Saved itineraries'}
+            {fr ? 'Itinéraires sauvegardés' : 'Saved itineraries'}
           </h4>
           <div className="col gap-8">
             {savedItineraires.map(s => (
@@ -154,11 +138,11 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{s.nom}</div>
                   <div className="muted mono" style={{ fontSize: 11 }}>
-                    {s.ville ? `${s.ville} · ` : ''}{(s.items || []).length} {lang === 'fr' ? 'étapes' : 'steps'}
+                    {s.ville ? `${s.ville} · ` : ''}{(s.items || []).length} {fr ? 'étapes' : 'steps'}
                   </div>
                 </div>
                 <button className="btn btn-outline btn-sm" onClick={() => handleLoad(s)}>
-                  {lang === 'fr' ? 'Charger' : 'Load'}
+                  {fr ? 'Charger' : 'Load'}
                 </button>
               </div>
             ))}
@@ -168,44 +152,88 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
 
       {/* Nom */}
       <div className="mb-24" style={{ maxWidth: 420 }}>
-        <label className="field-label">{lang === 'fr' ? "Nom de l'itinéraire" : 'Itinerary name'}</label>
+        <label className="field-label">{fr ? "Nom de l'itinéraire" : 'Itinerary name'}</label>
         <input className="input" value={nom} onChange={e => setNom(e.target.value)} style={{ fontSize: 15 }} />
       </div>
 
-      {/* Nombre de voyageurs */}
-      <div className="card-tile mb-24" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div className="serif" style={{ fontSize: 16, fontWeight: 600, marginBottom: 2 }}>
-            👥 {lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}
-          </div>
-          <div className="muted" style={{ fontSize: 12 }}>
-            {lang === 'fr'
-              ? 'Ce chiffre sera utilisé pour calculer le prix de chaque ajout (transport, hébergement, activité).'
-              : 'This number will be used to calculate prices for each item added.'}
-          </div>
+      {/* ── Paramètres du voyage ─────────────────────────────────────────── */}
+      <div className="card-tile mb-24" style={{ padding: 24 }}>
+        <div className="muted mb-16" style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+          {fr ? 'Paramètres du voyage' : 'Trip parameters'}
         </div>
-        <div className="row gap-10" style={{ alignItems: 'center' }}>
-          <button className="btn btn-outline btn-sm" style={{ width: 36, height: 36, padding: 0, fontSize: 18 }} onClick={() => setNbVoyageurs(n => Math.max(1, n - 1))}>−</button>
-          <span className="mono" style={{ fontSize: 22, fontWeight: 700, minWidth: 32, textAlign: 'center' }}>{nbVoyageurs}</span>
-          <button className="btn btn-outline btn-sm" style={{ width: 36, height: 36, padding: 0, fontSize: 18 }} onClick={() => setNbVoyageurs(n => Math.min(20, n + 1))}>+</button>
-        </div>
-      </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, alignItems: 'flex-end' }}>
 
-      {/* Voyageurs nommés */}
-      <div className="card-tile mb-32" style={{ padding: 24 }}>
-        <div className="between" style={{ marginBottom: showVoyageurs ? 20 : 0 }}>
-          <div className="row gap-12" style={{ alignItems: 'center' }}>
-            <h4 className="serif" style={{ fontSize: 18 }}>👥 {lang === 'fr' ? 'Voyageurs' : 'Travelers'}</h4>
-            {voyageurs.length > 0 && <span className="tag">{voyageurs.length}</span>}
+          {/* Date de départ */}
+          <div>
+            <label className="field-label">{fr ? 'Date de départ' : 'Departure date'}</label>
+            <input
+              className="input"
+              type="date"
+              value={itinDates.depart}
+              min={today()}
+              onChange={e => {
+                const val = e.target.value;
+                setItinDates(prev => ({
+                  depart: val,
+                  // Réinitialise retour si incohérent
+                  retour: prev.retour && prev.retour <= val ? '' : prev.retour,
+                }));
+              }}
+            />
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowVoy(v => !v)}>
-            {showVoyageurs ? (lang === 'fr' ? '▲ Réduire' : '▲ Collapse') : (lang === 'fr' ? '▼ Gérer les voyageurs' : '▼ Manage travelers')}
-          </button>
+
+          {/* Date de retour */}
+          <div>
+            <label className="field-label">{fr ? 'Date de retour' : 'Return date'}</label>
+            <input
+              className="input"
+              type="date"
+              value={itinDates.retour}
+              min={itinDates.depart || today()}
+              onChange={e => setItinDates(prev => ({ ...prev, retour: e.target.value }))}
+            />
+          </div>
+
+          {/* Nombre de voyageurs */}
+          <div>
+            <label className="field-label">
+              {fr ? 'Voyageurs' : 'Travelers'}
+              {voyageurs.length > 0 && (
+                <span className="muted" style={{ fontSize: 11, marginLeft: 6, fontWeight: 400 }}>
+                  ({voyageurs.length} {fr ? 'nommé(s)' : 'named'})
+                </span>
+              )}
+            </label>
+            <div className="row gap-8" style={{ alignItems: 'center', marginTop: 4 }}>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}
+                onClick={() => setItinNbVoyageurs(n => Math.max(1, n - 1))}
+              >−</button>
+              <span className="mono" style={{ fontSize: 18, fontWeight: 700, minWidth: 28, textAlign: 'center' }}>{itinNbVoyageurs}</span>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}
+                onClick={() => setItinNbVoyageurs(n => Math.min(20, n + 1))}
+              >+</button>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: 12, marginLeft: 4 }}
+                onClick={() => setShowVoy(v => !v)}
+              >
+                {showVoyageurs
+                  ? (fr ? '▲ Réduire' : '▲ Collapse')
+                  : (fr ? '▼ Nommer' : '▼ Name them')}
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Voyageurs nommés (optionnel, dépliable) */}
         {showVoyageurs && (
-          <div className="col gap-12 fade-up">
+          <div className="col gap-12 fade-up" style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--line-soft)' }}>
             {voyageurs.length === 0 ? (
-              <p className="muted" style={{ fontSize: 13 }}>{lang === 'fr' ? 'Aucun voyageur ajouté.' : 'No travelers added yet.'}</p>
+              <p className="muted" style={{ fontSize: 13 }}>{fr ? 'Aucun voyageur nommé.' : 'No travelers named yet.'}</p>
             ) : (
               <div className="col gap-8">
                 {voyageurs.map((v, i) => (
@@ -222,17 +250,17 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
                 ))}
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end', marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end', marginTop: 4 }}>
               <div>
-                <label className="field-label">{lang === 'fr' ? 'Prénom' : 'First name'}</label>
-                <input className="input" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={lang === 'fr' ? 'Prénom' : 'First name'} />
+                <label className="field-label">{fr ? 'Prénom' : 'First name'}</label>
+                <input className="input" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={fr ? 'Prénom' : 'First name'} />
               </div>
               <div>
-                <label className="field-label">{lang === 'fr' ? 'Nom' : 'Last name'}</label>
-                <input className="input" value={newNom} onChange={e => setNewNom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={lang === 'fr' ? 'Nom' : 'Last name'} />
+                <label className="field-label">{fr ? 'Nom' : 'Last name'}</label>
+                <input className="input" value={newNom} onChange={e => setNewNom(e.target.value)} onKeyDown={e => e.key === 'Enter' && addVoyageur()} placeholder={fr ? 'Nom' : 'Last name'} />
               </div>
               <button className="btn btn-outline" onClick={addVoyageur} disabled={!newPrenom.trim() && !newNom.trim()}>
-                + {lang === 'fr' ? 'Ajouter' : 'Add'}
+                + {fr ? 'Ajouter' : 'Add'}
               </button>
             </div>
           </div>
@@ -242,13 +270,13 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 56, alignItems: 'flex-start' }}>
         {/* Timeline */}
         <div className="card-tile" style={{ padding: 40 }}>
-          {items.length === 0 ? (
+          {itinItems.length === 0 ? (
             <div className="center muted" style={{ padding: '48px 0', fontSize: 15 }}>
-              {lang === 'fr' ? 'Votre itinéraire est vide. Ajoutez des éléments ci-dessous.' : 'Your itinerary is empty. Add items below.'}
+              {fr ? 'Votre itinéraire est vide. Ajoutez des éléments ci-dessous.' : 'Your itinerary is empty. Add items below.'}
             </div>
           ) : (
             <div className="timeline">
-              {items.map((s, i, arr) => (
+              {itinItems.map((s, i, arr) => (
                 <div key={i} className="tl-item" style={{ position: 'relative' }}>
                   <div className="tl-day" style={{ minWidth: 28 }}>{i + 1}</div>
                   <div className="tl-dot" style={{ borderColor: s.type === 'transport' ? 'var(--primary)' : 'var(--line)' }}>
@@ -258,7 +286,7 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
                     <h4>{s.titre}</h4>
                     {s.sous_titre && <div className="meta">{s.sous_titre}</div>}
                   </div>
-                  <div className="tl-price">{Number(s.prix).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
+                  <div className="tl-price">{Number(s.prix).toLocaleString(fr ? 'fr-FR' : 'en-US')} €</div>
                   <div className="col gap-2" style={{ marginLeft: 8 }}>
                     <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveItem(i, -1)} disabled={i === 0}>↑</button>
                     <button className="btn btn-ghost btn-sm" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveItem(i, 1)} disabled={i === arr.length - 1}>↓</button>
@@ -273,22 +301,22 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
           {/* Boutons d'ajout */}
           <div className="mt-24" style={{ borderTop: '1px solid var(--line-soft)', paddingTop: 20 }}>
             <div className="muted mb-12" style={{ fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {lang === 'fr' ? 'Ajouter à l\'itinéraire' : 'Add to itinerary'}
+              {fr ? "Ajouter à l'itinéraire" : 'Add to itinerary'}
             </div>
             <p className="muted mb-16" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-              {lang === 'fr'
-                ? 'Choisissez une catégorie. Vous serez redirigé vers la page correspondante pour sélectionner un élément, puis ramené ici automatiquement.'
-                : 'Choose a category. You\'ll be taken to the relevant page to pick an item, then returned here automatically.'}
+              {fr
+                ? 'Choisissez une catégorie. Vous serez redirigé vers la page correspondante, puis ramené ici automatiquement.'
+                : "Choose a category. You'll be taken to the relevant page, then returned here automatically."}
             </p>
             <div className="row gap-8" style={{ flexWrap: 'wrap' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => navigate('transport', { fromItinerary: true, itineraryTravelers: nbVoyageurs })}>
-                ✈ {lang === 'fr' ? 'Transport' : 'Transport'}
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('transport', { fromItinerary: true })}>
+                ✈ {fr ? 'Transport' : 'Transport'}
               </button>
-              <button className="btn btn-outline btn-sm" onClick={() => navigate('hebergement', { fromItinerary: true, itineraryTravelers: nbVoyageurs })}>
-                🏨 {lang === 'fr' ? 'Hébergement' : 'Accommodation'}
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('hebergement', { fromItinerary: true })}>
+                🏨 {fr ? 'Hébergement' : 'Accommodation'}
               </button>
-              <button className="btn btn-outline btn-sm" onClick={() => navigate('activites', { fromItinerary: true, itineraryTravelers: nbVoyageurs })}>
-                🎯 {lang === 'fr' ? 'Activité' : 'Activity'}
+              <button className="btn btn-outline btn-sm" onClick={() => navigate('activites', { fromItinerary: true })}>
+                🎯 {fr ? 'Activité' : 'Activity'}
               </button>
             </div>
             {itineraireId && (
@@ -298,7 +326,7 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
                 onClick={handleDelete}
                 disabled={loadingState === 'deleting'}
               >
-                {loadingState === 'deleting' ? (lang === 'fr' ? 'Suppression…' : 'Deleting…') : (lang === 'fr' ? 'Supprimer cet itinéraire' : 'Delete itinerary')}
+                {loadingState === 'deleting' ? (fr ? 'Suppression…' : 'Deleting…') : (fr ? 'Supprimer cet itinéraire' : 'Delete itinerary')}
               </button>
             )}
           </div>
@@ -308,20 +336,27 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
         <aside className="book-card">
           <div className="eyebrow mb-16">{T.itinerary.total}</div>
           <div className="serif" style={{ fontSize: 64, lineHeight: 1 }}>
-            {grand.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+            {grand.toLocaleString(fr ? 'fr-FR' : 'en-US')} €
           </div>
           <div className="muted mt-8" style={{ fontSize: 13 }}>
-            {lang === 'fr' ? `${items.length} étape${items.length > 1 ? 's' : ''} · taxes incluses` : `${items.length} step${items.length !== 1 ? 's' : ''} · taxes included`}
+            {fr
+              ? `${itinItems.length} étape${itinItems.length > 1 ? 's' : ''} · ${itinNbVoyageurs} voyageur${itinNbVoyageurs > 1 ? 's' : ''} · taxes incluses`
+              : `${itinItems.length} step${itinItems.length !== 1 ? 's' : ''} · ${itinNbVoyageurs} traveler${itinNbVoyageurs !== 1 ? 's' : ''} · taxes included`}
           </div>
+          {itinDates.depart && (
+            <div className="muted mono mt-4" style={{ fontSize: 12 }}>
+              {itinDates.depart}{itinDates.retour ? ` → ${itinDates.retour}` : ''}
+            </div>
+          )}
           <hr className="hr" />
           <div className="col gap-8">
             <div className="between">
               <span className="muted" style={{ fontSize: 13 }}>{T.cart.subtotal}</span>
-              <span className="mono" style={{ fontSize: 13 }}>{subtotal.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
+              <span className="mono" style={{ fontSize: 13 }}>{subtotal.toLocaleString(fr ? 'fr-FR' : 'en-US')} €</span>
             </div>
             <div className="between">
               <span className="muted" style={{ fontSize: 13 }}>{T.cart.taxes}</span>
-              <span className="mono" style={{ fontSize: 13 }}>{taxes.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
+              <span className="mono" style={{ fontSize: 13 }}>{taxes.toLocaleString(fr ? 'fr-FR' : 'en-US')} €</span>
             </div>
           </div>
           <hr className="hr" />
@@ -329,30 +364,29 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
             className={`btn btn-outline btn-lg mt-8 ${loadingState === 'saved' ? 'btn-ink' : ''}`}
             style={{ width: '100%', marginBottom: 12 }}
             onClick={handleSave}
-            disabled={loadingState === 'saving' || items.length === 0}
+            disabled={loadingState === 'saving' || itinItems.length === 0}
           >
             {loadingState === 'saving'
-              ? (lang === 'fr' ? 'Sauvegarde…' : 'Saving…')
+              ? (fr ? 'Sauvegarde…' : 'Saving…')
               : loadingState === 'saved'
-              ? (lang === 'fr' ? '✓ Sauvegardé' : '✓ Saved')
-              : (lang === 'fr' ? (itineraireId ? 'Mettre à jour' : 'Sauvegarder') : (itineraireId ? 'Update' : 'Save itinerary'))}
+              ? (fr ? '✓ Sauvegardé' : '✓ Saved')
+              : (fr ? (itineraireId ? 'Mettre à jour' : 'Sauvegarder') : (itineraireId ? 'Update' : 'Save itinerary'))}
           </button>
           <button
             className="btn btn-primary btn-lg"
             style={{ width: '100%' }}
             onClick={() => navigate('payment')}
-            disabled={items.length === 0}
+            disabled={itinItems.length === 0}
           >
             {T.itinerary.checkout} →
           </button>
           {!user?.id && (
             <p className="muted center mt-12" style={{ fontSize: 12 }}>
-              {lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Sign in to save your itinerary'}
+              {fr ? 'Connectez-vous pour sauvegarder' : 'Sign in to save your itinerary'}
             </p>
           )}
         </aside>
       </div>
-
     </main>
   );
 }
