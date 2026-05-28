@@ -27,6 +27,150 @@ function StarsDisplay({ n }) {
   );
 }
 
+function fakeAvis(hotel) {
+  return 48 + ((hotel.id * 23 + (hotel.nb_etoiles || 4) * 17) % 180);
+}
+
+// ── Calendrier inline pour sélection date d'arrivée / départ ────────────────
+function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, lang }) {
+  const minDay = minDate ? new Date(minDate + 'T00:00:00') : new Date();
+  minDay.setHours(0, 0, 0, 0);
+
+  const [phase, setPhase] = useState('arrivee');
+  const [viewYear, setViewYear] = useState(minDay.getFullYear());
+  const [viewMonth, setViewMonth] = useState(minDay.getMonth());
+
+  useEffect(() => {
+    if (!dateArrivee && !dateDepart) setPhase('arrivee');
+    else if (dateArrivee && !dateDepart) setPhase('depart');
+  }, [dateArrivee, dateDepart]);
+
+  const MONTHS = lang === 'fr'
+    ? ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+    : ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const DAYS = lang === 'fr'
+    ? ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa']
+    : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const handleDay = (day) => {
+    const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const clicked = new Date(iso + 'T00:00:00');
+    if (clicked < minDay) return;
+
+    if (phase === 'arrivee') {
+      onArrivee(iso);
+      onDepart('');
+      setPhase('depart');
+    } else {
+      const arr = dateArrivee ? new Date(dateArrivee + 'T00:00:00') : null;
+      if (!arr || clicked <= arr) {
+        onArrivee(iso);
+        onDepart('');
+      } else {
+        onDepart(iso);
+        setPhase('arrivee');
+      }
+    }
+  };
+
+  const daysCount = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const startDow = new Date(viewYear, viewMonth, 1).getDay();
+  const arr = dateArrivee ? new Date(dateArrivee + 'T00:00:00') : null;
+  const dep = dateDepart ? new Date(dateDepart + 'T00:00:00') : null;
+
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysCount; d++) cells.push(d);
+
+  return (
+    <div>
+      {/* Badges arrivée / départ */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {[
+          { key: 'arrivee', label: lang === 'fr' ? 'Arrivée' : 'Check-in',  val: dateArrivee },
+          { key: 'depart',  label: lang === 'fr' ? 'Départ'  : 'Check-out', val: dateDepart  },
+        ].map(({ key, label, val }) => (
+          <button
+            key={key}
+            onClick={() => setPhase(key)}
+            style={{
+              flex: 1, padding: '8px 10px', borderRadius: 8, fontSize: 12,
+              textAlign: 'center', cursor: 'pointer',
+              background: phase === key ? 'var(--primary)' : 'var(--surface-2)',
+              color: phase === key ? '#fff' : val ? 'var(--ink)' : 'var(--ink-faint)',
+              border: `1.5px solid ${phase === key ? 'var(--primary)' : 'var(--border)'}`,
+              transition: 'all 0.12s',
+            }}
+          >
+            <div style={{ fontWeight: 500, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>
+              {val || (lang === 'fr' ? 'Choisir' : 'Select')}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Navigation mois */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--ink)', padding: '2px 8px' }}>‹</button>
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{MONTHS[viewMonth]} {viewYear}</span>
+        <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--ink)', padding: '2px 8px' }}>›</button>
+      </div>
+
+      {/* En-têtes jours */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
+        {DAYS.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--ink-faint)', fontWeight: 600, paddingBottom: 4 }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Cellules jours */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((day, idx) => {
+          if (day === null) return <div key={`e${idx}`} />;
+          const iso    = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const date   = new Date(iso + 'T00:00:00');
+          const isPast = date < minDay;
+          const isArr  = arr && date.getTime() === arr.getTime();
+          const isDep  = dep && date.getTime() === dep.getTime();
+          const inRange = arr && dep && date > arr && date < dep;
+          const isEnd  = isArr || isDep;
+          return (
+            <button
+              key={day}
+              onClick={() => !isPast && handleDay(day)}
+              style={{
+                border: 'none', borderRadius: 6,
+                padding: '7px 0', fontSize: 13, textAlign: 'center',
+                cursor: isPast ? 'not-allowed' : 'pointer',
+                fontWeight: isEnd ? 700 : 400,
+                background: isEnd
+                  ? 'var(--primary)'
+                  : inRange
+                    ? 'color-mix(in oklab, var(--primary) 18%, transparent)'
+                    : 'transparent',
+                color: isEnd ? '#fff' : isPast ? 'var(--ink-faint)' : 'var(--ink)',
+                opacity: isPast ? 0.35 : 1,
+              }}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ScreenHebergement({ T, lang, navigate, user, onSignIn }) {
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +211,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
   const showResults = selectedPays || searchLower.length >= 2;
 
   const nights = calcNights(dateArrivee, dateDepart);
-  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) : 0;
+  // Prix total = nuits × prix/nuit × nombre de personnes
+  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
   const todayISO = toLocalISO(new Date());
 
   const openBooking = (hotel) => {
@@ -114,14 +259,15 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
           ? `Hôtel réservé — ${bookingHotel.nom}`
           : `Hotel booked — ${bookingHotel.nom}`,
         message: lang === 'fr'
-          ? `Réservation ${res.data.reference} confirmée · ${nights} nuit${nights > 1 ? 's' : ''} · ${total.toLocaleString('fr-FR')} €`
-          : `Booking ${res.data.reference} confirmed · ${nights} night${nights > 1 ? 's' : ''} · €${total.toLocaleString('en-US')}`,
+          ? `Réservation ${res.data.reference} confirmée · ${nights} nuit${nights > 1 ? 's' : ''} · ${nbPersonnes} pers. · ${total.toLocaleString('fr-FR')} €`
+          : `Booking ${res.data.reference} confirmed · ${nights} night${nights > 1 ? 's' : ''} · ${nbPersonnes} guest(s) · €${total.toLocaleString('en-US')}`,
       }).catch(() => {});
 
       setBookingSuccess(res.data.reference);
+      // Décrémente les places disponibles du nombre de personnes réservées
       setAllHotels(prev => prev.map(h =>
         h.id === bookingHotel.id
-          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - 1) }
+          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
           : h
       ));
     } catch (err) {
@@ -133,14 +279,14 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
 
   const availColor = (n) => {
     if (n === 0) return 'var(--danger)';
-    if (n <= 3) return '#f59e0b';
+    if (n <= 5) return '#f59e0b';
     return 'var(--ok)';
   };
 
   const availLabel = (n) => {
     if (n === 0) return lang === 'fr' ? 'Complet' : 'Fully booked';
-    if (n <= 3) return lang === 'fr' ? `${n} chambre${n > 1 ? 's' : ''} restante${n > 1 ? 's' : ''}` : `${n} room${n > 1 ? 's' : ''} left`;
-    return lang === 'fr' ? `${n} chambres disponibles` : `${n} rooms available`;
+    if (n <= 5) return lang === 'fr' ? `${n} place${n > 1 ? 's' : ''} restante${n > 1 ? 's' : ''}` : `${n} spot${n > 1 ? 's' : ''} left`;
+    return lang === 'fr' ? `${n} places disponibles` : `${n} spots available`;
   };
 
   return (
@@ -247,6 +393,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
               {displayedHotels.map(hotel => {
                 const dispo = hotel.nb_chambres_dispo ?? 0;
                 const complet = dispo === 0;
+                const avis = fakeAvis(hotel);
+                const note = Number(hotel.note || 4.5);
                 return (
                   <div key={hotel.id} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <Placeholder
@@ -257,12 +405,22 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                       style={{ borderRadius: '12px 12px 0 0', flexShrink: 0 }}
                     />
                     <div style={{ padding: '20px 20px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
                         <span className="tag" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                           {hotel.hotel_type || hotel.type}
                         </span>
                         <StarsDisplay n={hotel.nb_etoiles || 4} />
                       </div>
+
+                      {/* Note et avis */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 12.5 }}>
+                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>{note.toFixed(1)}</span>
+                        <span className="muted">·</span>
+                        <span className="muted">
+                          {avis} {lang === 'fr' ? 'avis' : 'reviews'}
+                        </span>
+                      </div>
+
                       <div className="serif" style={{ fontSize: 21, lineHeight: 1.2, marginBottom: 4 }}>{hotel.nom}</div>
                       <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>
                         {hotel.quartier ? `${hotel.quartier} · ` : ''}{hotel.ville}
@@ -280,7 +438,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                               {Number(hotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
                             </span>
                             <span className="muted" style={{ fontSize: 13 }}>
-                              {' '}/ {lang === 'fr' ? 'nuit' : 'night'}
+                              {' '}/ {lang === 'fr' ? 'nuit/pers.' : 'night/guest'}
                             </span>
                           </div>
                           <div style={{ fontSize: 12, fontWeight: 500, color: availColor(dispo) }}>
@@ -323,7 +481,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
             className="card-tile"
             style={{
               padding: '40px 40px 36px',
-              maxWidth: 500, width: '100%',
+              maxWidth: 520, width: '100%',
               background: 'var(--surface)',
               borderRadius: 16,
               maxHeight: '90vh',
@@ -376,25 +534,19 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                 </div>
 
                 <div className="col gap-16">
-                  <div className="grid grid-2 gap-16">
-                    <div>
-                      <label className="field-label">{lang === 'fr' ? "Date d'arrivée" : 'Check-in date'}</label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateArrivee}
-                        min={todayISO}
-                        onChange={e => setDateArrivee(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Check-out date'}</label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateDepart}
-                        min={dateArrivee || todayISO}
-                        onChange={e => setDateDepart(e.target.value)}
+                  {/* Calendrier de sélection des dates */}
+                  <div>
+                    <label className="field-label" style={{ marginBottom: 8, display: 'block' }}>
+                      {lang === 'fr' ? 'Sélectionnez vos dates' : 'Select your dates'}
+                    </label>
+                    <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '16px 14px' }}>
+                      <MiniCalendar
+                        dateArrivee={dateArrivee}
+                        dateDepart={dateDepart}
+                        onArrivee={setDateArrivee}
+                        onDepart={setDateDepart}
+                        minDate={todayISO}
+                        lang={lang}
                       />
                     </div>
                   </div>
@@ -408,7 +560,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                       type="number"
                       value={nbPersonnes}
                       min={1}
-                      max={10}
+                      max={bookingHotel.nb_chambres_dispo || 10}
                       onChange={e => setNbPersonnes(Math.max(1, parseInt(e.target.value) || 1))}
                     />
                   </div>
@@ -418,17 +570,18 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                       background: 'var(--surface-2)',
                       borderRadius: 8,
                       padding: '14px 16px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
                     }}>
-                      <div className="muted" style={{ fontSize: 13 }}>
-                        {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
-                        {' × '}
-                        {Number(bookingHotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
-                      </div>
-                      <div className="serif" style={{ fontSize: 22 }}>
-                        {total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="muted" style={{ fontSize: 13 }}>
+                          {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
+                          {' × '}
+                          {Number(bookingHotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                          {' × '}
+                          {nbPersonnes} {lang === 'fr' ? `pers.` : `guest${nbPersonnes > 1 ? 's' : ''}`}
+                        </div>
+                        <div className="serif" style={{ fontSize: 22 }}>
+                          {total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                        </div>
                       </div>
                     </div>
                   )}

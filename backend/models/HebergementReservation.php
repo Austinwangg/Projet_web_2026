@@ -53,12 +53,12 @@ class HebergementReservation {
             throw new \InvalidArgumentException('ID d\'hébergement manquant.');
         }
 
-        if (!Hebergement::isAvailable($hebergementId)) {
-            throw new \RuntimeException('Hébergement complet — aucune chambre disponible.');
-        }
-
-        $nbNuits     = $arrivee->diff($depart)->days;
         $nbPersonnes = (int) ($data['nb_personnes'] ?? 1);
+        $nbNuits     = $arrivee->diff($depart)->days;
+
+        if (!Hebergement::isAvailable($hebergementId, $nbPersonnes)) {
+            throw new \RuntimeException("Pas assez de places disponibles pour {$nbPersonnes} personne(s).");
+        }
         $hotel       = Hebergement::getById($hebergementId);
         $montant     = isset($data['montant_total']) && $data['montant_total'] > 0
             ? (float) $data['montant_total']
@@ -85,7 +85,7 @@ class HebergementReservation {
         ]);
         $newId = (int) getDB()->lastInsertId();
 
-        Hebergement::decrementDispo($hebergementId);
+        Hebergement::decrementDispo($hebergementId, $nbPersonnes);
 
         return $newId;
     }
@@ -97,7 +97,8 @@ class HebergementReservation {
         $stmt = getDB()->prepare("UPDATE reservations_hebergement SET statut = 'annulee' WHERE id = ?");
         $stmt->execute([$id]);
 
-        Hebergement::incrementDispo((int) $res['hebergement_id']);
+        $nbPersonnes = (int) ($res['nb_personnes'] ?? 1);
+        Hebergement::incrementDispo((int) $res['hebergement_id'], $nbPersonnes);
 
         return true;
     }
