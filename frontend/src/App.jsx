@@ -31,6 +31,9 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('vv_user')) || null; } catch { return null; }
   });
+  const [favorites, setFavorites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vv_favorites')) || []; } catch { return []; }
+  });
   const [authMode, setAuthMode] = useState(null);
   const [toast, setToast] = useState('');
   const [theme, setTheme] = useState('light');
@@ -71,6 +74,14 @@ export default function App() {
   };
 
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
+
+  const toggleFavorite = (destId) => {
+    setFavorites(prev => {
+      const next = prev.includes(destId) ? prev.filter(id => id !== destId) : [...prev, destId];
+      localStorage.setItem('vv_favorites', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const onAuth = (userData) => {
     const nom = typeof userData === 'string' ? userData : (userData.nom || '');
@@ -118,10 +129,10 @@ export default function App() {
         <ScreenHome T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
       )}
       {screen === 'results' && (
-        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} itineraryMode={itineraryMode} addToItinerary={addToItinerary} />
+        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} itineraryMode={itineraryMode} addToItinerary={addToItinerary} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'detail' && (
-        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} />
+        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'itinerary' && (
         <ScreenItinerary
@@ -133,13 +144,30 @@ export default function App() {
         />
       )}
       {screen === 'cart' && (
-        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} updateCartItem={(id, data) => setCart(prev => prev.map(i => i.id === id ? { ...i, ...data } : i))} navigate={navigate} />
+        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} updateCartItem={(id, data) => {
+          setCart(prev => prev.map(i => {
+            if (i.id !== id) return i;
+            const updated = { ...i, ...data };
+            // Recalcul du prix selon le type d'unité
+            if (updated.pricePerUnit !== undefined) {
+              const nb = updated.nbVoyageurs || 1;
+              if (updated.priceUnit === 'per_night') {
+                const nights = updated.nbNuits || Math.max(1, Math.round((new Date(updated.dateRetour) - new Date(updated.dateDepart)) / 86400000));
+                updated.price = updated.pricePerUnit * nights;
+              } else {
+                // per_person (transport, activités)
+                updated.price = updated.pricePerUnit * nb;
+              }
+            }
+            return updated;
+          }));
+        }} navigate={navigate} />
       )}
       {screen === 'payment' && (
         <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
       )}
       {screen === 'account' && (
-        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
+        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'transport' && (
         <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />

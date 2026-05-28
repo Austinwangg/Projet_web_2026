@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createItineraire, updateItineraire, deleteItineraire, getItinerairesByUser } from '../services/itinerairesService.js';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 
 function toLocalISO(d) {
   const y = d.getFullYear();
@@ -88,7 +89,14 @@ export default function ScreenItinerary({
     if (updated.length > itinNbVoyageurs) setItinNbVoyageurs(updated.length);
     setNewPrenom(''); setNewNom('');
   };
-  const removeVoyageur = (id) => setVoyageurs(prev => prev.filter(v => v.id !== id));
+  const removeVoyageur = (id) => {
+    setVoyageurs(prev => {
+      const next = prev.filter(v => v.id !== id);
+      // Réduire le compteur si le nombre de nommés devient inférieur au compteur actuel
+      setItinNbVoyageurs(n => Math.max(next.length, Math.max(1, n - 1)));
+      return next;
+    });
+  };
 
   const removeItem = (idx) => setItinItems(prev => prev.filter((_, i) => i !== idx));
   const moveItem   = (idx, dir) => setItinItems(prev => {
@@ -161,36 +169,17 @@ export default function ScreenItinerary({
         <div className="muted mb-16" style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
           {fr ? 'Paramètres du voyage' : 'Trip parameters'}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, alignItems: 'flex-end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, alignItems: 'flex-end' }}>
 
-          {/* Date de départ */}
-          <div>
-            <label className="field-label">{fr ? 'Date de départ' : 'Departure date'}</label>
-            <input
-              className="input"
-              type="date"
-              value={itinDates.depart}
-              min={today()}
-              onChange={e => {
-                const val = e.target.value;
-                setItinDates(prev => ({
-                  depart: val,
-                  // Réinitialise retour si incohérent
-                  retour: prev.retour && prev.retour <= val ? '' : prev.retour,
-                }));
-              }}
-            />
-          </div>
-
-          {/* Date de retour */}
-          <div>
-            <label className="field-label">{fr ? 'Date de retour' : 'Return date'}</label>
-            <input
-              className="input"
-              type="date"
-              value={itinDates.retour}
-              min={itinDates.depart || today()}
-              onChange={e => setItinDates(prev => ({ ...prev, retour: e.target.value }))}
+          {/* Dates — calendrier visuel */}
+          <div style={{ gridColumn: 'span 2' }}>
+            <DateRangePicker
+              depart={itinDates.depart}
+              retour={itinDates.retour}
+              onChangeDates={({ depart, retour }) => setItinDates({ depart, retour })}
+              T={T}
+              lang={lang}
+              label={fr ? 'Dates du voyage' : 'Travel dates'}
             />
           </div>
 

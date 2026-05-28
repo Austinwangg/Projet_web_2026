@@ -49,7 +49,7 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
             {theme === 'dark' ? '◐' : '◑'}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('cart')} style={{ position: 'relative' }}>
-            ⊕ {cartCount > 0 ? `(${cartCount})` : ''}
+            🧳 {cartCount > 0 ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', borderRadius: 99, padding: '1px 6px', marginLeft: 2 }}>{cartCount}</span> : ''}
           </button>
           <Notifications user={user} />
           {user ? (

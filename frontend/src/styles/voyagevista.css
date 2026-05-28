@@ -509,9 +509,9 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
 /* Timeline */
 .timeline { display: flex; flex-direction: column; gap: 0; }
 .tl-item {
-  display: grid; grid-template-columns: 80px 36px 1fr auto; gap: 18px;
+  display: grid; grid-template-columns: 80px 36px 1fr auto auto; gap: 12px;
   align-items: flex-start;
-  padding: 18px 0;
+  padding: 8px 0;
   position: relative;
 }
 .tl-day { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; padding-top: 4px; }
@@ -523,11 +523,11 @@ input[type="range"] { width: 100%; accent-color: var(--primary); }
   font-size: 14px; flex-shrink: 0;
 }
 .tl-line {
-  position: absolute; left: 95px; top: 32px; bottom: -18px;
+  position: absolute; left: 95px; top: 32px; bottom: -8px;
   width: 1px; background: var(--line); z-index: 1;
 }
 .tl-item:last-child .tl-line { display: none; }
-.tl-body h4 { font-family: 'Instrument Serif', serif; font-size: 22px; font-weight: 400; margin-bottom: 4px; }
+.tl-body h4 { font-family: 'Instrument Serif', serif; font-size: 20px; font-weight: 400; margin-bottom: 2px; }
 .tl-body .meta { font-size: 13px; color: var(--ink-soft); }
 .tl-price { font-size: 14px; font-weight: 600; }
 

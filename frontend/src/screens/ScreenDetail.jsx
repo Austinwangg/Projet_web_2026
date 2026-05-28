@@ -23,7 +23,7 @@ function today() {
   return toLocalISO(new Date());
 }
 
-export default function ScreenDetail({ T, lang, navigate, cart, addToCart, removeFromCart, destId, cardStyle, searchDates, searchTravelers }) {
+export default function ScreenDetail({ T, lang, navigate, cart, addToCart, removeFromCart, destId, cardStyle, searchDates, searchTravelers, favorites = [], toggleFavorite }) {
   const [dest, setDest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +32,8 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
   const [selectedTransport, setSelectedTransport] = useState(null);
   const [selectedHotel, setSelectedHotel] = useState(null);
   const [selectedActivities, setSelectedActivities] = useState([]);
-  const [favorite, setFavorite] = useState(false);
+  const isFavorite = favorites.includes(destId);
+  const handleFavorite = () => { if (toggleFavorite) toggleFavorite(destId); };
 
   // Dates et voyageurs — pré-remplir depuis la recherche si disponible
   const [dateDepart, setDateDepart] = useState(() => {
@@ -120,6 +121,8 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
         title: `${lang === 'fr' ? 'Transport A/R' : 'Round-trip'} · ${transport.depart} → ${transport.arrivee}`,
         sub: `${transport.compagnie} · ${transport.duree || ''} · ${dateDepart} → ${dateRetour}`,
         price: transportPrice * nbVoyageurs,
+        pricePerUnit: transportPrice,
+        priceUnit: 'per_person',
         icon: '✈',
         dateDepart,
         dateRetour,
@@ -135,6 +138,9 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
         title: hotel.nom,
         sub: `${hotel.quartier || ''} · ${nights} ${lang === 'fr' ? 'nuits' : 'nights'}`,
         price: hotelPrice,
+        pricePerUnit: parseFloat(hotel.prix_nuit) || 0,
+        priceUnit: 'per_night',
+        nbNuits: nights,
         icon: '⌂',
         dateDepart,
         dateRetour,
@@ -150,6 +156,8 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
         title: lang === 'fr' ? a.nom_fr : a.nom_en,
         sub: `${a.duree || ''} · ${nbVoyageurs} ${lang === 'fr' ? 'pers.' : 'pax'}`,
         price: (parseFloat(a.prix) || 0) * nbVoyageurs,
+        pricePerUnit: parseFloat(a.prix) || 0,
+        priceUnit: 'per_person',
         icon: '◇',
       });
     });
@@ -190,8 +198,8 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
           <p className="muted mt-8" style={{ maxWidth: 640, fontSize: 16 }}>{blurb}</p>
         </div>
         <div className="row gap-8">
-          <button className={`btn btn-outline ${favorite ? 'btn-ink' : ''}`} onClick={() => setFavorite(!favorite)}>
-            {favorite ? '♥' : '♡'} {T.detail.favorite}
+          <button className={`btn btn-outline ${isFavorite ? 'btn-ink' : ''}`} onClick={handleFavorite}>
+            {isFavorite ? '♥' : '♡'} {T.detail.favorite}
           </button>
           <button className="btn btn-outline">↗ {T.detail.share}</button>
         </div>

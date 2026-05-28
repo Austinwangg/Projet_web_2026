@@ -17,7 +17,7 @@ function diffDays(start, end) {
 }
 
 
-export default function ScreenResults({ T, lang, search, setSearch, navigate, cardStyle, itineraryMode, addToItinerary }) {
+export default function ScreenResults({ T, lang, search, setSearch, navigate, cardStyle, itineraryMode, addToItinerary, favorites = [], toggleFavorite }) {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -305,6 +305,23 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
                     }}>
                       {lang === 'fr' ? '+ Itinéraire' : '+ Itinerary'}
                     </div>
+                  )}
+                  {!itineraryMode && (
+                    <button
+                      onClick={e => { e.stopPropagation(); if (toggleFavorite) toggleFavorite(d.id); }}
+                      style={{
+                        position: 'absolute', top: 10, right: 10,
+                        background: favorites.includes(d.id) ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.85)',
+                        color: favorites.includes(d.id) ? '#fff' : '#ef4444',
+                        border: 'none', borderRadius: '50%',
+                        width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+                        display: 'grid', placeItems: 'center',
+                        boxShadow: '0 1px 4px rgba(0,0,0,.15)',
+                      }}
+                      title={favorites.includes(d.id) ? (lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites') : (lang === 'fr' ? 'Ajouter aux favoris' : 'Add to favorites')}
+                    >
+                      {favorites.includes(d.id) ? '♥' : '♡'}
+                    </button>
                   )}
                   <div className="dest-meta">
                     <div>

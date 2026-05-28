@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { searchTransports } from '../services/transportsService.js';
 import { getDestinations } from '../services/destinationsService.js';
 import { createNotification } from '../services/notificationService.js';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 
 const TYPE_ICONS = { avion: '✈', train: '🚆', bus: '🚌', voiture: '🚗' };
 const TYPE_LABELS = {
@@ -236,6 +237,8 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
       title: `${lang === 'fr' ? 'Transport' : 'Transport'} · ${t.depart} → ${t.arrivee}`,
       sub: `${t.compagnie || ''} · ${t.duree || ''} · ${dateDepart} → ${dateRetour}`,
       price: parseFloat(t.prix) * nbVoyageurs,
+      pricePerUnit: parseFloat(t.prix),
+      priceUnit: 'per_person',
       icon: TYPE_ICONS[t.type] || '✈',
       dateDepart,
       dateRetour,
@@ -394,47 +397,18 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
 
             {/* Dates */}
             <div>
-              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
-                {fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
-              </label>
-              <div className="col gap-8">
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {fr ? 'DÉPART' : 'DEPARTURE'}
-                  </label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={dateDepart}
-                    min={today()}
-                    style={{ width: '100%', marginTop: 4 }}
-                    onChange={e => {
-                      setDateDepart(e.target.value);
-                      setDateError('');
-                      // Auto-ajuste retour si incohérent
-                      if (dateRetour && e.target.value >= dateRetour) {
-                        setDateRetour(addDays(e.target.value, 1));
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {fr ? 'RETOUR' : 'RETURN'}
-                  </label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={dateRetour}
-                    min={addDays(dateDepart, 1) || today()}
-                    style={{ width: '100%', marginTop: 4 }}
-                    onChange={e => {
-                      setDateRetour(e.target.value);
-                      setDateError('');
-                    }}
-                  />
-                </div>
-              </div>
+              <DateRangePicker
+                depart={dateDepart}
+                retour={dateRetour}
+                onChangeDates={({ depart, retour }) => {
+                  setDateDepart(depart);
+                  setDateRetour(retour);
+                  setDateError('');
+                }}
+                T={T}
+                lang={lang}
+                label={fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
+              />
               {dateError && (
                 <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)', padding: '6px 10px', borderRadius: 6, background: 'color-mix(in oklab, var(--danger) 10%, transparent)' }}>
                   {dateError}
@@ -607,43 +581,20 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
                   <div className="fade-up" style={{
                     marginTop: 20, paddingTop: 20,
                     borderTop: '1px solid var(--line-soft)',
-                    display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 16, alignItems: 'flex-end',
+                    display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'flex-end',
                   }}>
-                    <div>
-                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
-                        {fr ? 'DATE DE DÉPART' : 'DEPARTURE DATE'}
-                      </label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateDepart}
-                        min={today()}
-                        style={{ width: '100%' }}
-                        onChange={e => {
-                          setDateDepart(e.target.value);
-                          setDateError('');
-                          if (dateRetour && e.target.value >= dateRetour) {
-                            setDateRetour(addDays(e.target.value, 1));
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
-                        {fr ? 'DATE DE RETOUR' : 'RETURN DATE'}
-                      </label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateRetour}
-                        min={addDays(dateDepart, 1) || today()}
-                        style={{ width: '100%' }}
-                        onChange={e => {
-                          setDateRetour(e.target.value);
-                          setDateError('');
-                        }}
-                      />
-                    </div>
+                    <DateRangePicker
+                      depart={dateDepart}
+                      retour={dateRetour}
+                      onChangeDates={({ depart, retour }) => {
+                        setDateDepart(depart);
+                        setDateRetour(retour);
+                        setDateError('');
+                      }}
+                      T={T}
+                      lang={lang}
+                      label={fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
+                    />
                     {itineraryMode ? (
                       <button
                         className="btn btn-primary"

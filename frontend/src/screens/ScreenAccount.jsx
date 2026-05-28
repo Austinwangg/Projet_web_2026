@@ -3,11 +3,11 @@ import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
 import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
-import { updateReservationStatus, updateReservation, cancelActiviteFromReservation } from '../services/reservationsService.js';
-import { getHebergementReservationsByUser, cancelHebergementReservation, updateHebergementReservation } from '../services/hebergementReservationsService.js';
+import { updateReservationStatus, cancelActiviteFromReservation } from '../services/reservationsService.js';
+import { getHebergementReservationsByUser, cancelHebergementReservation } from '../services/hebergementReservationsService.js';
 import api from '../services/api.js';
 
-export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser }) {
+export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser, favorites = [], toggleFavorite }) {
   const [tab, setTab] = useState('bookings');
 
   // Profil
@@ -30,13 +30,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [resLoading, setResLoading]     = useState(false);
   const [resActionId, setResActionId]   = useState(null);
 
-  // Modale de modification de réservation
-  const [editModal, setEditModal]       = useState(null); // { reservation }
-  const [editDepart, setEditDepart]     = useState('');
-  const [editRetour, setEditRetour]     = useState('');
-  const [editVoyageurs, setEditVoy]     = useState(1);
-  const [editSaving, setEditSaving]     = useState(false);
-  const [editError, setEditError]       = useState('');
 
   // Activités par réservation { [resId]: [{ activite_id, nom_fr, nom_en, nb_places }] }
   const [resActivites, setResActivites]       = useState({});
@@ -47,13 +40,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [hotelResLoading, setHotelResLoading]     = useState(false);
   const [hotelResActionId, setHotelResActionId]   = useState(null);
 
-  // Modale de modification de réservation hôtel
-  const [hotelEditModal, setHotelEditModal]     = useState(null);
-  const [hotelEditArrivee, setHotelEditArrivee] = useState('');
-  const [hotelEditDepart, setHotelEditDepart]   = useState('');
-  const [hotelEditNb, setHotelEditNb]           = useState(1);
-  const [hotelEditSaving, setHotelEditSaving]   = useState(false);
-  const [hotelEditError, setHotelEditError]     = useState('');
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -162,87 +148,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   };
 
-  const openHotelEditModal = (r) => {
-    setHotelEditModal(r);
-    setHotelEditArrivee(r.date_arrivee || '');
-    setHotelEditDepart(r.date_depart || '');
-    setHotelEditNb(r.nb_personnes || 1);
-    setHotelEditError('');
-  };
-
-  const handleEditHotelReservation = async () => {
-    if (!hotelEditModal) return;
-    setHotelEditSaving(true);
-    setHotelEditError('');
-    try {
-      await updateHebergementReservation(hotelEditModal.id, {
-        date_arrivee: hotelEditArrivee,
-        date_depart:  hotelEditDepart,
-        nb_personnes: hotelEditNb,
-      });
-      setHotelReservations(prev => prev.map(x =>
-        x.id === hotelEditModal.id
-          ? { ...x, date_arrivee: hotelEditArrivee, date_depart: hotelEditDepart, nb_personnes: hotelEditNb }
-          : x
-      ));
-      createNotification({
-        utilisateur_id: user.id,
-        type: 'booking',
-        titre: lang === 'fr'
-          ? `Réservation hôtel modifiée · ${hotelEditModal.reference}`
-          : `Hotel booking updated · ${hotelEditModal.reference}`,
-        message: lang === 'fr'
-          ? `Votre réservation hôtel ${hotelEditModal.reference} a été mise à jour : arrivée ${hotelEditArrivee}, départ ${hotelEditDepart}, ${hotelEditNb} personne(s).`
-          : `Your hotel booking ${hotelEditModal.reference} was updated: check-in ${hotelEditArrivee}, check-out ${hotelEditDepart}, ${hotelEditNb} guest(s).`,
-      }).catch(() => {});
-      setHotelEditModal(null);
-    } catch (err) {
-      setHotelEditError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la modification.' : 'Update failed.'));
-    } finally {
-      setHotelEditSaving(false);
-    }
-  };
-
-  const openEditModal = (r) => {
-    setEditModal(r);
-    setEditDepart(r.date_depart || '');
-    setEditRetour(r.date_retour || '');
-    setEditVoy(r.nb_voyageurs || 1);
-    setEditError('');
-  };
-
-  const handleEditReservation = async () => {
-    if (!editModal) return;
-    setEditSaving(true);
-    setEditError('');
-    try {
-      await updateReservation(editModal.id, {
-        date_depart: editDepart,
-        date_retour: editRetour,
-        nb_voyageurs: editVoyageurs,
-      });
-      setReservations(prev => prev.map(x =>
-        x.id === editModal.id
-          ? { ...x, date_depart: editDepart, date_retour: editRetour, nb_voyageurs: editVoyageurs }
-          : x
-      ));
-      createNotification({
-        utilisateur_id: user.id,
-        type: 'booking',
-        titre: lang === 'fr'
-          ? `Réservation modifiée · ${editModal.reference}`
-          : `Booking updated · ${editModal.reference}`,
-        message: lang === 'fr'
-          ? `Votre réservation ${editModal.reference} a été mise à jour : ${editDepart} → ${editRetour}, ${editVoyageurs} voyageur(s).`
-          : `Your booking ${editModal.reference} was updated: ${editDepart} → ${editRetour}, ${editVoyageurs} traveler(s).`,
-      }).catch(() => {});
-      setEditModal(null);
-    } catch (err) {
-      setEditError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la modification.' : 'Update failed.'));
-    } finally {
-      setEditSaving(false);
-    }
-  };
 
   const handleCancelActivite = async (reservation, activite) => {
     if (!window.confirm(
@@ -369,7 +274,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                   </div>
                   <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>{destName}</div>
                   <div className="muted mt-4" style={{ fontSize: 13.5 }}>
-                    {r.date_depart} → {r.date_retour} · {T.account.travelers(r.nb_voyageurs)}
+                    {formatDate(r.date_depart)} → {formatDate(r.date_retour)} · {T.account.travelers(r.nb_voyageurs)}
                   </div>
                   {r.transport_id && (
                     <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
@@ -408,14 +313,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                 <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
                   <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
                   <div className="row gap-8">
-                    {canCancel && (
-                      <button
-                        className="btn btn-outline btn-sm"
-                        disabled={resActionId === r.id}
-                        onClick={() => openEditModal(r)}>
-                        {lang === 'fr' ? '✎ Modifier' : '✎ Edit'}
-                      </button>
-                    )}
                     {canCancel && (
                       <button
                         className="btn btn-ghost btn-sm"
@@ -460,9 +357,9 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                         {lang === 'fr' ? `, ${r.pays_fr}` : `, ${r.pays_en}`}
                       </div>
                       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {r.date_arrivee}
+                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {formatDate(r.date_arrivee)}
                         {' → '}
-                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {r.date_depart}
+                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {formatDate(r.date_depart)}
                       </div>
                       <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
                         {r.nb_personnes} {lang === 'fr' ? `personne${r.nb_personnes > 1 ? 's' : ''}` : `guest${r.nb_personnes > 1 ? 's' : ''}`}
@@ -476,13 +373,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                       </div>
                       {canCancel && (
                         <div className="row gap-8">
-                          <button
-                            className="btn btn-outline btn-sm"
-                            disabled={hotelResActionId === r.id}
-                            onClick={() => openHotelEditModal(r)}
-                          >
-                            {lang === 'fr' ? '✎ Modifier' : '✎ Edit'}
-                          </button>
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ color: 'var(--danger)' }}
@@ -505,19 +395,51 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
 
       {/* ── Favoris ── */}
       {tab === 'favorites' && (
-        <div className="grid grid-4 fade-up">
-          {destinations.slice(0, 4).map(d => (
-            <button key={d.id} className="dest" onClick={() => navigate('detail', { id: d.id })}>
-              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
-              <div className="dest-meta">
-                <div>
-                  <div className="dest-name">{d.city}</div>
-                  <div className="dest-country">{lang === 'fr' ? d.country : d.countryEn}</div>
-                </div>
-                <span>♥</span>
+        <div className="fade-up">
+          {favorites.length === 0 ? (
+            <div className="card-tile" style={{ padding: 60, textAlign: 'center', color: 'var(--ink-faint)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>♡</div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 8 }}>
+                {lang === 'fr' ? 'Aucun favori pour le moment' : 'No favorites yet'}
               </div>
-            </button>
-          ))}
+              <div className="muted" style={{ fontSize: 14, marginBottom: 24 }}>
+                {lang === 'fr'
+                  ? 'Explorez les destinations et cliquez sur ♥ pour les sauvegarder ici.'
+                  : 'Browse destinations and click ♥ to save them here.'}
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('results')}>
+                {lang === 'fr' ? 'Explorer les destinations' : 'Explore destinations'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-4">
+              {destinations.filter(d => favorites.includes(d.id)).map(d => (
+                <div key={d.id} style={{ position: 'relative' }}>
+                  <button className="dest" onClick={() => navigate('detail', { id: d.id })}>
+                    <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
+                    <div className="dest-meta">
+                      <div>
+                        <div className="dest-name">{d.city}</div>
+                        <div className="dest-country">{lang === 'fr' ? d.country : d.countryEn}</div>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => toggleFavorite && toggleFavorite(d.id)}
+                    style={{
+                      position: 'absolute', top: 10, right: 10,
+                      background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: '50%',
+                      width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+                      display: 'grid', placeItems: 'center',
+                    }}
+                    title={lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites'}
+                  >
+                    ♥
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -624,183 +546,6 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
               </div>
             ))
           )}
-        </div>
-      )}
-      {/* ── Modale modification réservation hôtel ── */}
-      {hotelEditModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setHotelEditModal(null); }}
-        >
-          <div className="card-tile" style={{ width: '100%', maxWidth: 480, padding: 32 }}>
-            <div className="between mb-24">
-              <h3 className="serif" style={{ fontSize: 22 }}>
-                {lang === 'fr' ? 'Modifier la réservation hôtel' : 'Edit hotel booking'}
-              </h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setHotelEditModal(null)}>✕</button>
-            </div>
-
-            <div className="mono mb-16" style={{ fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-              {lang === 'fr' ? 'RÉF.' : 'REF.'} {hotelEditModal.reference} · {hotelEditModal.hotel_nom}
-            </div>
-
-            <div className="col gap-16">
-              <div className="grid grid-2 gap-12">
-                <div>
-                  <label className="field-label">{lang === 'fr' ? 'Date d\'arrivée' : 'Check-in date'}</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={hotelEditArrivee}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={e => setHotelEditArrivee(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Check-out date'}</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={hotelEditDepart}
-                    min={hotelEditArrivee || new Date().toISOString().slice(0, 10)}
-                    onChange={e => setHotelEditDepart(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="field-label">{lang === 'fr' ? 'Nombre de personnes' : 'Number of guests'}</label>
-                <div className="row gap-8" style={{ alignItems: 'center', marginTop: 6 }}>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ width: 32, height: 32, padding: 0 }}
-                    onClick={() => setHotelEditNb(v => Math.max(1, v - 1))}
-                  >−</button>
-                  <span className="mono" style={{ fontSize: 16, minWidth: 24, textAlign: 'center' }}>{hotelEditNb}</span>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ width: 32, height: 32, padding: 0 }}
-                    onClick={() => setHotelEditNb(v => Math.min(20, v + 1))}
-                  >+</button>
-                </div>
-              </div>
-
-              {hotelEditError && (
-                <div style={{
-                  fontSize: 13, padding: '8px 12px', borderRadius: 8,
-                  color: 'var(--danger)',
-                  background: 'color-mix(in oklab, var(--danger) 10%, transparent)',
-                }}>{hotelEditError}</div>
-              )}
-
-              <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn btn-outline" onClick={() => setHotelEditModal(null)}>
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleEditHotelReservation}
-                  disabled={hotelEditSaving || !hotelEditArrivee || !hotelEditDepart}
-                >
-                  {hotelEditSaving ? '…' : (lang === 'fr' ? 'Enregistrer les modifications' : 'Save changes')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modale modification réservation ── */}
-      {editModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={e => { if (e.target === e.currentTarget) setEditModal(null); }}
-        >
-          <div className="card-tile" style={{ width: '100%', maxWidth: 480, padding: 32 }}>
-            <div className="between mb-24">
-              <h3 className="serif" style={{ fontSize: 22 }}>
-                {lang === 'fr' ? 'Modifier la réservation' : 'Edit booking'}
-              </h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditModal(null)}>✕</button>
-            </div>
-
-            <div className="mono mb-16" style={{ fontSize: 11, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-              {lang === 'fr' ? 'RÉF.' : 'REF.'} {editModal.reference}
-            </div>
-
-            <div className="col gap-16">
-              <div className="grid grid-2 gap-12">
-                <div>
-                  <label className="field-label">{lang === 'fr' ? 'Date de départ' : 'Departure date'}</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={editDepart}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={e => setEditDepart(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="field-label">{lang === 'fr' ? 'Date de retour' : 'Return date'}</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={editRetour}
-                    min={editDepart || new Date().toISOString().slice(0, 10)}
-                    onChange={e => setEditRetour(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
-                <div className="row gap-8" style={{ alignItems: 'center', marginTop: 6 }}>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ width: 32, height: 32, padding: 0 }}
-                    onClick={() => setEditVoy(v => Math.max(1, v - 1))}
-                  >−</button>
-                  <span className="mono" style={{ fontSize: 16, minWidth: 24, textAlign: 'center' }}>{editVoyageurs}</span>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ width: 32, height: 32, padding: 0 }}
-                    onClick={() => setEditVoy(v => Math.min(20, v + 1))}
-                  >+</button>
-                </div>
-              </div>
-
-              {editError && (
-                <div style={{
-                  fontSize: 13, padding: '8px 12px', borderRadius: 8,
-                  color: 'var(--danger)',
-                  background: 'color-mix(in oklab, var(--danger) 10%, transparent)',
-                }}>{editError}</div>
-              )}
-
-              <div className="row gap-12" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn btn-outline" onClick={() => setEditModal(null)}>
-                  {lang === 'fr' ? 'Annuler' : 'Cancel'}
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleEditReservation}
-                  disabled={editSaving || !editDepart || !editRetour}
-                >
-                  {editSaving ? '…' : (lang === 'fr' ? 'Enregistrer les modifications' : 'Save changes')}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </main>

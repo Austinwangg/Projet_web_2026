@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
 export default function ScreenCart({ T, lang, cart, removeFromCart, updateCartItem, navigate }) {
-  const [editItem, setEditItem] = useState(null);
-  const [editQty, setEditQty]   = useState(1);
-  const [editDate, setEditDate] = useState('');
+  const [editItem, setEditItem]       = useState(null);
+  const [editQty, setEditQty]         = useState(1);
+  const [editDate, setEditDate]       = useState('');
+  const [editDateRetour, setEditDateRetour] = useState('');
 
   const subtotal = cart.reduce((s, i) => s + i.price, 0);
   const taxes = Math.round(subtotal * 0.06);
@@ -23,12 +24,19 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, updateCartIt
     setEditItem(item);
     setEditQty(item.nbVoyageurs || 1);
     setEditDate(item.dateDepart || '');
+    setEditDateRetour(item.dateRetour || '');
   };
 
   const confirmEdit = () => {
     if (!editItem) return;
     if (updateCartItem) {
-      updateCartItem(editItem.id, { nbVoyageurs: editQty, dateDepart: editDate });
+      const updates = { nbVoyageurs: editQty, dateDepart: editDate };
+      if (editItem.kind === 'hotel' && editDate && editDateRetour) {
+        const nights = Math.max(1, Math.round((new Date(editDateRetour) - new Date(editDate)) / 86400000));
+        updates.dateRetour = editDateRetour;
+        updates.nbNuits = nights;
+      }
+      updateCartItem(editItem.id, updates);
     }
     setEditItem(null);
   };
@@ -146,13 +154,43 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, updateCartIt
                   />
                 </div>
               )}
-              {editItem.nbVoyageurs !== undefined && (
+              {editItem.kind === 'hotel' && editItem.dateRetour !== undefined && (
+                <div>
+                  <label className="field-label">{lang === 'fr' ? 'Date de retour' : 'Return date'}</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={editDateRetour}
+                    min={editDate || new Date().toISOString().slice(0, 10)}
+                    onChange={e => setEditDateRetour(e.target.value)}
+                  />
+                  {editDate && editDateRetour && (
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      {Math.max(1, Math.round((new Date(editDateRetour) - new Date(editDate)) / 86400000))} {lang === 'fr' ? 'nuit(s)' : 'night(s)'}
+                    </div>
+                  )}
+                </div>
+              )}
+              {editItem.nbVoyageurs !== undefined && editItem.kind !== 'hotel' && (
                 <div>
                   <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
                   <div className="row gap-8" style={{ alignItems: 'center', marginTop: 6 }}>
                     <button className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setEditQty(q => Math.max(1, q - 1))}>−</button>
                     <span className="mono" style={{ fontSize: 16, minWidth: 24, textAlign: 'center' }}>{editQty}</span>
                     <button className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setEditQty(q => Math.min(20, q + 1))}>+</button>
+                  </div>
+                </div>
+              )}
+              {editItem.nbVoyageurs !== undefined && editItem.kind === 'hotel' && (
+                <div>
+                  <label className="field-label">{lang === 'fr' ? 'Nombre de voyageurs' : 'Number of travelers'}</label>
+                  <div className="row gap-8" style={{ alignItems: 'center', marginTop: 6 }}>
+                    <button className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setEditQty(q => Math.max(1, q - 1))}>−</button>
+                    <span className="mono" style={{ fontSize: 16, minWidth: 24, textAlign: 'center' }}>{editQty}</span>
+                    <button className="btn btn-outline btn-sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setEditQty(q => Math.min(20, q + 1))}>+</button>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    {lang === 'fr' ? 'Le prix de l\'hôtel est par nuit (non multiplié par les voyageurs).' : 'Hotel price is per night (not multiplied by travelers).'}
                   </div>
                 </div>
               )}
