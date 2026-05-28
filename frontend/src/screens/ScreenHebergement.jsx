@@ -171,7 +171,7 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
   );
 }
 
-export default function ScreenHebergement({ T, lang, navigate, user, onSignIn }) {
+export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, itineraryMode, addToItinerary, itineraryTravelers }) {
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -180,7 +180,13 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
   const [bookingHotel, setBookingHotel] = useState(null);
   const [dateArrivee, setDateArrivee] = useState('');
   const [dateDepart, setDateDepart] = useState('');
-  const [nbPersonnes, setNbPersonnes] = useState(1);
+  const [nbPersonnes, setNbPersonnes] = useState(() => itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
+
+  // Modal itinéraire (sélection dates + nb personnes avant d'ajouter)
+  const [itinModal, setItinModal] = useState(null);
+  const [itinDateArrivee, setItinDateArrivee] = useState('');
+  const [itinDateDepart, setItinDateDepart] = useState('');
+  const [itinNbPersonnes, setItinNbPersonnes] = useState(1);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(null);
@@ -208,7 +214,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
     return matchPays && matchSearch;
   });
 
-  const showResults = selectedPays || searchLower.length >= 2;
+  const showResults = true;
 
   const nights = calcNights(dateArrivee, dateDepart);
   // Prix total = nuits × prix/nuit × nombre de personnes
@@ -291,6 +297,43 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
 
   return (
     <main className="container" style={{ paddingTop: 40, paddingBottom: 80 }}>
+
+      {/* Bandeau mode sélection itinéraire */}
+      {itineraryMode && (
+        <div style={{
+          background: 'color-mix(in oklab, #f59e0b 15%, var(--surface))',
+          border: '2px solid #f59e0b',
+          borderRadius: 12,
+          padding: '14px 20px',
+          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🗺️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>
+                {lang === 'fr' ? 'Mode sélection — Itinéraire' : 'Selection mode — Itinerary'}
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-faint)', marginTop: 2 }}>
+                {lang === 'fr'
+                  ? 'Cliquez sur "Ajouter à l\'itinéraire" sur un hôtel pour l\'ajouter puis revenir.'
+                  : 'Click "Add to itinerary" on a hotel to add it and return.'}
+              </div>
+            </div>
+          </div>
+          <div className="row gap-8">
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-faint)' }} onClick={() => navigate('itinerary')}>
+              {lang === 'fr' ? 'Passer cette étape →' : 'Skip this step →'}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('itinerary')}>
+              ← {lang === 'fr' ? 'Retour à l\'itinéraire' : 'Back to itinerary'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div className="mono mb-16" style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--ink-faint)' }}>
@@ -448,16 +491,35 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                             {availLabel(dispo)}
                           </div>
                         </div>
-                        <button
-                          className={complet ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm'}
-                          style={{ width: '100%' }}
-                          disabled={complet}
-                          onClick={() => openBooking(hotel)}
-                        >
-                          {complet
-                            ? (lang === 'fr' ? 'Complet' : 'Fully booked')
-                            : (lang === 'fr' ? 'Réserver cet hôtel' : 'Book this hotel')}
-                        </button>
+                        {itineraryMode ? (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ width: '100%', background: '#f59e0b', border: 'none' }}
+                            disabled={complet}
+                            onClick={() => {
+                              if (complet) return;
+                              setItinModal(hotel);
+                              setItinDateArrivee('');
+                              setItinDateDepart('');
+                              setItinNbPersonnes(itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
+                            }}
+                          >
+                            {complet
+                              ? (lang === 'fr' ? 'Complet' : 'Fully booked')
+                              : (lang === 'fr' ? '+ Ajouter à l\'itinéraire' : '+ Add to itinerary')}
+                          </button>
+                        ) : (
+                          <button
+                            className={complet ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm'}
+                            style={{ width: '100%' }}
+                            disabled={complet}
+                            onClick={() => openBooking(hotel)}
+                          >
+                            {complet
+                              ? (lang === 'fr' ? 'Complet' : 'Fully booked')
+                              : (lang === 'fr' ? 'Réserver cet hôtel' : 'Book this hotel')}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -466,6 +528,96 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
             </div>
           )}
         </>
+      )}
+
+      {/* Modal ajout itinéraire (dates + nb personnes) */}
+      {itinModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => e.target === e.currentTarget && setItinModal(null)}
+        >
+          <div className="card-tile" style={{ padding: '36px 36px 28px', maxWidth: 480, width: '100%', background: 'var(--surface)', borderRadius: 16, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <span className="tag" style={{ fontSize: 11, marginBottom: 6, display: 'inline-block', background: '#f59e0b', color: '#fff', border: 'none' }}>
+                  {lang === 'fr' ? 'Itinéraire' : 'Itinerary'}
+                </span>
+                <h3 className="serif" style={{ fontSize: 22, lineHeight: 1.1 }}>{itinModal.nom}</h3>
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+                  {itinModal.quartier ? `${itinModal.quartier} · ` : ''}{itinModal.ville}{lang === 'fr' ? `, ${itinModal.pays_fr}` : `, ${itinModal.pays_en}`}
+                </p>
+              </div>
+              <button onClick={() => setItinModal(null)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ink-faint)', padding: '4px 8px', lineHeight: 1 }}>✕</button>
+            </div>
+            <div className="col gap-16">
+              <div>
+                <label className="field-label" style={{ marginBottom: 8, display: 'block' }}>
+                  {lang === 'fr' ? 'Dates du séjour' : 'Stay dates'}
+                </label>
+                <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '16px 14px' }}>
+                  <MiniCalendar
+                    dateArrivee={itinDateArrivee}
+                    dateDepart={itinDateDepart}
+                    onArrivee={setItinDateArrivee}
+                    onDepart={setItinDateDepart}
+                    minDate={toLocalISO(new Date())}
+                    lang={lang}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="field-label">{lang === 'fr' ? 'Nombre de personnes' : 'Number of guests'}</label>
+                <div className="row gap-10" style={{ alignItems: 'center', marginTop: 6 }}>
+                  <button className="btn btn-outline btn-sm" style={{ width: 36, height: 36, padding: 0 }} onClick={() => setItinNbPersonnes(n => Math.max(1, n - 1))}>−</button>
+                  <span className="mono" style={{ fontSize: 18, minWidth: 28, textAlign: 'center', fontWeight: 600 }}>{itinNbPersonnes}</span>
+                  <button className="btn btn-outline btn-sm" style={{ width: 36, height: 36, padding: 0 }} onClick={() => setItinNbPersonnes(n => Math.min(itinModal.nb_chambres_dispo || 20, n + 1))}>+</button>
+                </div>
+              </div>
+              {(() => {
+                const nights = calcNights(itinDateArrivee, itinDateDepart);
+                const total = nights * Number(itinModal.prix_nuit) * itinNbPersonnes;
+                return nights > 0 ? (
+                  <div style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="muted" style={{ fontSize: 13 }}>
+                      {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
+                      {' × '}{Number(itinModal.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                      {' × '}{itinNbPersonnes} {lang === 'fr' ? 'pers.' : `guest${itinNbPersonnes > 1 ? 's' : ''}`}
+                    </span>
+                    <span className="serif" style={{ fontSize: 20 }}>{total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
+                  </div>
+                ) : null;
+              })()}
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginTop: 4, background: '#f59e0b', border: 'none' }}
+                disabled={!itinDateArrivee || !itinDateDepart || calcNights(itinDateArrivee, itinDateDepart) <= 0}
+                onClick={() => {
+                  if (!addToItinerary) return;
+                  const nights = calcNights(itinDateArrivee, itinDateDepart);
+                  const total = nights * Number(itinModal.prix_nuit) * itinNbPersonnes;
+                  addToItinerary({
+                    type: 'hebergement',
+                    ref_id: itinModal.id,
+                    titre: itinModal.nom,
+                    sous_titre: `${itinModal.quartier ? itinModal.quartier + ' · ' : ''}${itinModal.ville} · ${itinDateArrivee} → ${itinDateDepart} · ${itinNbPersonnes} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
+                    prix: total,
+                    icone: '🏨',
+                    date_item: itinDateArrivee,
+                  });
+                  setItinModal(null);
+                }}
+              >
+                {(() => {
+                  const nights = calcNights(itinDateArrivee, itinDateDepart);
+                  if (!itinDateArrivee || !itinDateDepart || nights <= 0)
+                    return lang === 'fr' ? 'Choisissez les dates' : 'Select dates';
+                  const total = nights * Number(itinModal.prix_nuit) * itinNbPersonnes;
+                  return `${lang === 'fr' ? '+ Ajouter à l\'itinéraire' : '+ Add to itinerary'} · ${total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €`;
+                })()}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Booking modal */}

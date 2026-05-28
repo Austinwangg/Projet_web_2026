@@ -3,19 +3,25 @@ require_once __DIR__ . '/../config/database.php';
 
 class Activite {
 
+    private static function joinSQL(): string {
+        return 'SELECT a.*, d.pays_fr, d.pays_en, d.ville, d.slug, d.image_url AS dest_image_url
+                FROM activites a
+                LEFT JOIN destinations d ON d.id = a.destination_id';
+    }
+
     public static function getAll(): array {
-        $stmt = getDB()->query('SELECT * FROM activites ORDER BY nom_fr ASC');
+        $stmt = getDB()->query(self::joinSQL() . ' ORDER BY d.pays_fr ASC, a.nom_fr ASC');
         return $stmt->fetchAll();
     }
 
     public static function getByDest(int $destId): array {
-        $stmt = getDB()->prepare('SELECT * FROM activites WHERE destination_id = ? ORDER BY prix ASC');
+        $stmt = getDB()->prepare(self::joinSQL() . ' WHERE a.destination_id = ? ORDER BY a.prix ASC');
         $stmt->execute([$destId]);
         return $stmt->fetchAll();
     }
 
     public static function getById(int $id): array|false {
-        $stmt = getDB()->prepare('SELECT * FROM activites WHERE id = ?');
+        $stmt = getDB()->prepare(self::joinSQL() . ' WHERE a.id = ?');
         $stmt->execute([$id]);
         return $stmt->fetch();
     }
