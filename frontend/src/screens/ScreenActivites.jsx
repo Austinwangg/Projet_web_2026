@@ -494,7 +494,8 @@ export default function ScreenActivites({ T, lang, navigate, user, addToCart, it
                   const prix = parseFloat(cartModal.prix) * cartNb;
                   addToCart([{
                     id: `activite-${cartModal.id}-${cartDate}`,
-                    kind: 'activite',
+                    kind: 'activity',
+                    activiteDbId: cartModal.id,
                     title: name,
                     sub: `${cartModal.ville || ''}${cartModal.duree ? ' · ' + cartModal.duree : ''} · ${cartDate} · ${cartNb} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
                     price: prix,

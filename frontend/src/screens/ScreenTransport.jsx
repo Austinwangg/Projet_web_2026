@@ -576,25 +576,13 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
                   </div>
                 </div>
 
-                {/* Panneau dates (visible quand sélectionné) */}
+                {/* Panneau action (visible quand sélectionné) */}
                 {isSelected && (
                   <div className="fade-up" style={{
                     marginTop: 20, paddingTop: 20,
                     borderTop: '1px solid var(--line-soft)',
-                    display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'flex-end',
+                    display: 'flex', justifyContent: 'flex-end', gap: 12,
                   }}>
-                    <DateRangePicker
-                      depart={dateDepart}
-                      retour={dateRetour}
-                      onChangeDates={({ depart, retour }) => {
-                        setDateDepart(depart);
-                        setDateRetour(retour);
-                        setDateError('');
-                      }}
-                      T={T}
-                      lang={lang}
-                      label={fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
-                    />
                     {itineraryMode ? (
                       <button
                         className="btn btn-primary"

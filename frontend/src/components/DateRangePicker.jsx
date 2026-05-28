@@ -146,7 +146,7 @@ export default function DateRangePicker({ depart, retour, onChangeDates, T, lang
       {open && (
         <div
           className="popover"
-          style={{ minWidth: 560, top: 'calc(100% + 8px)', left: 0, zIndex: 200 }}
+          style={{ minWidth: 560, top: 'calc(100% + 8px)', left: 0, zIndex: 9999 }}
           onClick={e => e.stopPropagation()}
         >
           <div className="between mb-16">

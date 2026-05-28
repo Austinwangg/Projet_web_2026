@@ -3,12 +3,16 @@ import { createReservation } from '../services/reservationsService.js';
 import { createNotification } from '../services/notificationService.js';
 import api from '../services/api.js';
 
-export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, search, detailId }) {
-  const subtotal = cart.reduce((s, i) => s + i.price, 0);
+export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, search, detailId, itinItems = [], itinNbVoyageurs = 0, itinDates = {} }) {
+  // Si le panier est vide mais qu'il y a un itinéraire, on utilise l'itinéraire
+  const fromItinerary = cart.length === 0 && itinItems.length > 0;
+  const activeItems   = fromItinerary ? itinItems : cart;
+
+  const subtotal = activeItems.reduce((s, i) => s + Number(i.price ?? i.prix ?? 0), 0);
   const taxes    = Math.round(subtotal * 0.06);
   const total    = subtotal + taxes || 1408;
 
-  // Resolve nb_voyageurs from cart items first, then global search state
+  // Resolve nb_voyageurs
   const flightItemTop = cart.find(i => i.kind === 'flight');
   const hotelItemTop  = cart.find(i => i.kind === 'hotel');
   const cartNb = flightItemTop?.nbVoyageurs || hotelItemTop?.nbVoyageurs
@@ -16,7 +20,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
   const searchNb = search?.travelers
     ? (search.travelers.adult || 0) + (search.travelers.student || 0) + (search.travelers.child || 0)
     : 0;
-  const nbVoyageurs = cartNb || searchNb || 2;
+  const nbVoyageurs = fromItinerary ? (itinNbVoyageurs || 1) : (cartNb || searchNb || 2);
 
   // Nights from hotel or fallback
   const hotelItemNights = cart.find(i => i.kind === 'hotel');
@@ -41,23 +45,6 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
     setError('');
 
     try {
-      // Resolve destination slug from cart items or fallback
-      const destSlug = cart.find(i => i.destSlug)?.destSlug || detailId || 'shanghai';
-
-      // Get destination_id from backend
-      const destRes = await api.get(`/destinations?slug=${destSlug}`);
-      const destinationId = destRes.data?.id;
-      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable.' : 'Destination not found.');
-
-      // Extract hebergement, transport and activite DB ids from cart
-      const hotelItem      = cart.find(i => i.kind === 'hotel');
-      const flightItem     = cart.find(i => i.kind === 'flight');
-      const actItems       = cart.filter(i => i.kind === 'activity');
-      const hebergementId  = hotelItem?.hebergementDbId || null;
-      const transportId    = flightItem?.transportDbId || null;
-      const activiteIds    = actItems.map(i => i.activiteDbId).filter(Boolean);
-
-      // Build dates — priorité transport > hôtel > recherche > fallback
       const fmtLocal = (d) => {
         const dt = d instanceof Date ? d : new Date(d);
         const y  = dt.getFullYear();
@@ -65,14 +52,50 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         const day = String(dt.getDate()).padStart(2, '0');
         return `${y}-${m}-${day}`;
       };
-      const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
-      const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
-      const dateDepart = transportDates?.dateDepart
-        ?? hotelDates?.dateDepart
-        ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
-      const dateRetour = transportDates?.dateRetour
-        ?? hotelDates?.dateRetour
-        ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
+
+      // Resolve destination slug
+      const destSlug = fromItinerary
+        ? (itinItems.find(i => i.destSlug)?.destSlug || detailId || 'shanghai')
+        : (cart.find(i => i.destSlug)?.destSlug || detailId || 'shanghai');
+
+      // Get destination_id from backend
+      const destRes = await api.get(`/destinations?slug=${destSlug}`);
+      const destinationId = destRes.data?.id;
+      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable.' : 'Destination not found.');
+
+      // Extract IDs selon la source
+      let hebergementId = null, transportId = null, activiteIds = [];
+      if (fromItinerary) {
+        const itinTransport = itinItems.find(i => i.type === 'transport');
+        const itinHeberg    = itinItems.find(i => i.type === 'hebergement');
+        const itinActs      = itinItems.filter(i => i.type === 'activite');
+        transportId    = itinTransport?.ref_id || null;
+        hebergementId  = itinHeberg?.ref_id    || null;
+        activiteIds    = itinActs.map(i => i.ref_id).filter(Boolean);
+      } else {
+        const hotelItem  = cart.find(i => i.kind === 'hotel');
+        const flightItem = cart.find(i => i.kind === 'flight');
+        const actItems   = cart.filter(i => i.kind === 'activity');
+        hebergementId    = hotelItem?.hebergementDbId  || null;
+        transportId      = flightItem?.transportDbId   || null;
+        activiteIds      = actItems.map(i => i.activiteDbId).filter(Boolean);
+      }
+
+      // Build dates
+      let dateDepart, dateRetour;
+      if (fromItinerary) {
+        dateDepart = itinDates?.depart || fmtLocal(new Date(Date.now() + 7  * 86400000));
+        dateRetour = itinDates?.retour || fmtLocal(new Date(Date.now() + 14 * 86400000));
+      } else {
+        const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
+        const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
+        dateDepart = transportDates?.dateDepart
+          ?? hotelDates?.dateDepart
+          ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
+        dateRetour = transportDates?.dateRetour
+          ?? hotelDates?.dateRetour
+          ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
+      }
 
       const travelers = nbVoyageurs;
 
@@ -225,19 +248,16 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         <aside className="book-card">
           <div className="eyebrow mb-16">{T.cart.summary}</div>
           <div className="col gap-12">
-            {cart.slice(0, 5).map(item => (
-              <div key={item.id} className="between">
-                <span style={{ fontSize: 13.5 }}>{item.title.slice(0, 28)}{item.title.length > 28 ? '…' : ''}</span>
-                <span className="mono" style={{ fontSize: 13 }}>{item.price} €</span>
-              </div>
-            ))}
-            {cart.length === 0 && (
-              <>
-                <div className="between"><span style={{ fontSize: 13.5 }}>Vol A/R Paris → Shanghai</span><span className="mono" style={{ fontSize: 13 }}>1 224 €</span></div>
-                <div className="between"><span style={{ fontSize: 13.5 }}>Hôtel · 7 nuits</span><span className="mono" style={{ fontSize: 13 }}>875 €</span></div>
-                <div className="between"><span style={{ fontSize: 13.5 }}>2 activités</span><span className="mono" style={{ fontSize: 13 }}>180 €</span></div>
-              </>
-            )}
+            {activeItems.slice(0, 5).map((item, idx) => {
+              const title = item.title || item.titre || '';
+              const price = Number(item.price ?? item.prix ?? 0);
+              return (
+                <div key={item.id || idx} className="between">
+                  <span style={{ fontSize: 13.5 }}>{title.slice(0, 28)}{title.length > 28 ? '…' : ''}</span>
+                  <span className="mono" style={{ fontSize: 13 }}>{price.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
+                </div>
+              );
+            })}
           </div>
           <hr className="hr" />
           <div className="between mb-8">

@@ -144,27 +144,10 @@ export default function App() {
         />
       )}
       {screen === 'cart' && (
-        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} updateCartItem={(id, data) => {
-          setCart(prev => prev.map(i => {
-            if (i.id !== id) return i;
-            const updated = { ...i, ...data };
-            // Recalcul du prix selon le type d'unité
-            if (updated.pricePerUnit !== undefined) {
-              const nb = updated.nbVoyageurs || 1;
-              if (updated.priceUnit === 'per_night') {
-                const nights = updated.nbNuits || Math.max(1, Math.round((new Date(updated.dateRetour) - new Date(updated.dateDepart)) / 86400000));
-                updated.price = updated.pricePerUnit * nights;
-              } else {
-                // per_person (transport, activités)
-                updated.price = updated.pricePerUnit * nb;
-              }
-            }
-            return updated;
-          }));
-        }} navigate={navigate} />
+        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
       )}
       {screen === 'payment' && (
-        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => { setCart([]); setItinItems([]); }} user={user} search={search} detailId={detailId} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} itinDates={itinDates} />
       )}
       {screen === 'account' && (
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} favorites={favorites} toggleFavorite={toggleFavorite} />
