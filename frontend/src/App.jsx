@@ -14,6 +14,7 @@ import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
 import ScreenTransport from './screens/ScreenTransport.jsx';
 import ScreenHebergement from './screens/ScreenHebergement.jsx';
+import ScreenActivites from './screens/ScreenActivites.jsx';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
@@ -113,7 +114,7 @@ export default function App() {
         <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
       )}
       {screen === 'cart' && (
-        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
+        <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} updateCartItem={(id, data) => setCart(prev => prev.map(i => i.id === id ? { ...i, ...data } : i))} navigate={navigate} />
       )}
       {screen === 'payment' && (
         <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
@@ -126,6 +127,9 @@ export default function App() {
       )}
       {screen === 'hebergement' && (
         <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} />
+      )}
+      {screen === 'activites' && (
+        <ScreenActivites T={T} lang={lang} navigate={navigate} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />

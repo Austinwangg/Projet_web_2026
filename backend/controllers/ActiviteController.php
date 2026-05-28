@@ -3,9 +3,10 @@ require_once __DIR__ . '/../models/Activite.php';
 
 class ActiviteController {
     public static function handle(): void {
-        $method = $_SERVER['REQUEST_METHOD'];
-        $id     = isset($_GET['id'])             ? (int) $_GET['id']             : null;
-        $destId = isset($_GET['destination_id']) ? (int) $_GET['destination_id'] : null;
+        $method      = $_SERVER['REQUEST_METHOD'];
+        $id          = isset($_GET['id'])             ? (int) $_GET['id']             : null;
+        $destId      = isset($_GET['destination_id']) ? (int) $_GET['destination_id'] : null;
+        $reservationId = isset($_GET['reservation_id']) ? (int) $_GET['reservation_id'] : null;
         header('Content-Type: application/json; charset=utf-8');
 
         switch ($method) {
@@ -15,6 +16,9 @@ class ActiviteController {
                     echo json_encode(['available' => Activite::isAvailable($checkDispo)], JSON_UNESCAPED_UNICODE);
                 } elseif ($id) {
                     echo json_encode(Activite::getById($id) ?: ['error'=>'Non trouvé'], JSON_UNESCAPED_UNICODE);
+                } elseif ($reservationId) {
+                    require_once __DIR__ . '/../models/Reservation.php';
+                    echo json_encode(Reservation::getActivites($reservationId), JSON_UNESCAPED_UNICODE);
                 } elseif ($destId) {
                     echo json_encode(Activite::getByDest($destId), JSON_UNESCAPED_UNICODE);
                 } else {

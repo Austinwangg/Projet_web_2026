@@ -9,6 +9,12 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
   const [loadingState, setLoadingState] = useState('idle'); // idle | saving | saved | loading | deleting
   const [showSaved, setShowSaved] = useState(false);
 
+  // Gestion nominative des voyageurs
+  const [voyageurs, setVoyageurs]     = useState([]);
+  const [newPrenom, setNewPrenom]     = useState('');
+  const [newNom, setNewNom]           = useState('');
+  const [showVoyageurs, setShowVoy]   = useState(false);
+
   // Build items from cart on mount
   useEffect(() => {
     if (cart.length > 0 && items.length === 0) {
@@ -91,6 +97,17 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
     onToast(lang === 'fr' ? `"${saved.nom}" chargé` : `"${saved.nom}" loaded`);
   };
 
+  const addVoyageur = () => {
+    const prenom = newPrenom.trim();
+    const nom = newNom.trim();
+    if (!prenom && !nom) return;
+    setVoyageurs(prev => [...prev, { id: Date.now(), prenom, nom }]);
+    setNewPrenom('');
+    setNewNom('');
+  };
+
+  const removeVoyageur = (id) => setVoyageurs(prev => prev.filter(v => v.id !== id));
+
   const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
 
   const moveItem = (idx, dir) => {
@@ -161,6 +178,90 @@ export default function ScreenItinerary({ T, lang, navigate, cart, user, onToast
           onChange={e => setNom(e.target.value)}
           style={{ fontSize: 15 }}
         />
+      </div>
+
+      {/* Gestion des voyageurs */}
+      <div className="card-tile mb-32" style={{ padding: 24 }}>
+        <div className="between" style={{ marginBottom: showVoyageurs ? 20 : 0 }}>
+          <div className="row gap-12" style={{ alignItems: 'center' }}>
+            <h4 className="serif" style={{ fontSize: 18 }}>
+              👥 {lang === 'fr' ? 'Voyageurs' : 'Travelers'}
+            </h4>
+            {voyageurs.length > 0 && (
+              <span className="tag">{voyageurs.length}</span>
+            )}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowVoy(v => !v)}>
+            {showVoyageurs
+              ? (lang === 'fr' ? '▲ Réduire' : '▲ Collapse')
+              : (lang === 'fr' ? '▼ Gérer les voyageurs' : '▼ Manage travelers')}
+          </button>
+        </div>
+
+        {showVoyageurs && (
+          <div className="col gap-12 fade-up">
+            {/* Liste */}
+            {voyageurs.length === 0 ? (
+              <p className="muted" style={{ fontSize: 13 }}>
+                {lang === 'fr' ? 'Aucun voyageur ajouté pour l\'instant.' : 'No travelers added yet.'}
+              </p>
+            ) : (
+              <div className="col gap-8">
+                {voyageurs.map((v, i) => (
+                  <div key={v.id} className="between" style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--surface-2)' }}>
+                    <div className="row gap-10" style={{ alignItems: 'center' }}>
+                      <div className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
+                        {(v.prenom?.[0] || '') + (v.nom?.[0] || '')}
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>
+                        {v.prenom} {v.nom}
+                      </span>
+                      <span className="mono muted" style={{ fontSize: 11 }}>#{i + 1}</span>
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: 'var(--danger)', fontSize: 12 }}
+                      onClick={() => removeVoyageur(v.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulaire ajout */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'flex-end', marginTop: 8 }}>
+              <div>
+                <label className="field-label">{lang === 'fr' ? 'Prénom' : 'First name'}</label>
+                <input
+                  className="input"
+                  value={newPrenom}
+                  onChange={e => setNewPrenom(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addVoyageur()}
+                  placeholder={lang === 'fr' ? 'Prénom' : 'First name'}
+                />
+              </div>
+              <div>
+                <label className="field-label">{lang === 'fr' ? 'Nom' : 'Last name'}</label>
+                <input
+                  className="input"
+                  value={newNom}
+                  onChange={e => setNewNom(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addVoyageur()}
+                  placeholder={lang === 'fr' ? 'Nom' : 'Last name'}
+                />
+              </div>
+              <button
+                className="btn btn-outline"
+                onClick={addVoyageur}
+                disabled={!newPrenom.trim() && !newNom.trim()}
+              >
+                + {lang === 'fr' ? 'Ajouter' : 'Add'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 56, alignItems: 'flex-start' }}>

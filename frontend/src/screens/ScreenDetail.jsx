@@ -453,9 +453,35 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
                 <p className="muted">{lang === 'fr' ? 'Aucun hébergement disponible.' : 'No accommodation available.'}</p>
               ) : (
                 <div className="grid grid-2">
-                  {(dest.hebergements || []).map(h => (
-                    <button key={h.id} onClick={() => setSelectedHotel(h.id)} className="card-tile" style={{ border: selectedHotel === h.id ? '1.5px solid var(--ink)' : '1px solid var(--line-soft)', textAlign: 'left', padding: 0, overflow: 'hidden', cursor: 'pointer', background: 'var(--surface)' }}>
-                      <Placeholder label={h.nom.toUpperCase()} ratio="16/10" cat={dest.type} style={{ borderRadius: 0 }} imageUrl={h.image_url} />
+                  {(dest.hebergements || []).map(h => {
+                    const hotelFull = h.nb_chambres_dispo !== undefined && parseInt(h.nb_chambres_dispo, 10) <= 0;
+                    return (
+                    <button
+                      key={h.id}
+                      onClick={() => !hotelFull && setSelectedHotel(h.id)}
+                      disabled={hotelFull}
+                      className="card-tile"
+                      style={{
+                        border: selectedHotel === h.id ? '1.5px solid var(--ink)' : '1px solid var(--line-soft)',
+                        textAlign: 'left', padding: 0, overflow: 'hidden',
+                        cursor: hotelFull ? 'not-allowed' : 'pointer',
+                        opacity: hotelFull ? 0.6 : 1,
+                        background: 'var(--surface)',
+                      }}
+                    >
+                      <div style={{ position: 'relative' }}>
+                        <Placeholder label={h.nom.toUpperCase()} ratio="16/10" cat={dest.type} style={{ borderRadius: 0 }} imageUrl={h.image_url} />
+                        {hotelFull && (
+                          <span style={{
+                            position: 'absolute', top: 10, right: 10,
+                            background: 'var(--danger)', color: '#fff',
+                            fontSize: 11, fontWeight: 700, padding: '3px 8px',
+                            borderRadius: 4, letterSpacing: '0.05em',
+                          }}>
+                            {lang === 'fr' ? 'COMPLET' : 'SOLD OUT'}
+                          </span>
+                        )}
+                      </div>
                       <div style={{ padding: 20 }}>
                         <div className="between">
                           <div className="serif" style={{ fontSize: 20 }}>{h.nom}</div>
@@ -463,8 +489,10 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
                         </div>
                         <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{h.quartier}</div>
                         {h.nb_chambres_dispo !== undefined && (
-                          <div className="mono" style={{ fontSize: 11, color: h.nb_chambres_dispo < 3 ? 'var(--danger)' : 'var(--ok)', marginTop: 6 }}>
-                            {h.nb_chambres_dispo} {lang === 'fr' ? 'chambres dispo' : 'rooms available'}
+                          <div className="mono" style={{ fontSize: 11, color: hotelFull ? 'var(--danger)' : (h.nb_chambres_dispo < 3 ? 'var(--danger)' : 'var(--ok)'), marginTop: 6 }}>
+                            {hotelFull
+                              ? (lang === 'fr' ? '✕ Aucune chambre disponible' : '✕ No rooms available')
+                              : `${h.nb_chambres_dispo} ${lang === 'fr' ? 'chambres dispo' : 'rooms available'}`}
                           </div>
                         )}
                         <div className="row gap-8 mt-12">
@@ -475,13 +503,18 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
                             <span className="serif" style={{ fontSize: 22 }}>{h.prix_nuit} €</span>
                             <span className="muted" style={{ fontSize: 12, marginLeft: 4 }}>{T.detail.perNight}</span>
                           </div>
-                          <span className="mono" style={{ fontSize: 11, color: selectedHotel === h.id ? 'var(--primary)' : 'var(--ink-faint)' }}>
-                            {selectedHotel === h.id ? '● ' + (lang === 'fr' ? 'CHOISI' : 'SELECTED') : '○ ' + (lang === 'fr' ? 'CHOISIR' : 'SELECT')}
-                          </span>
+                          {hotelFull ? (
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--danger)' }}>✕ {lang === 'fr' ? 'INDISPONIBLE' : 'UNAVAILABLE'}</span>
+                          ) : (
+                            <span className="mono" style={{ fontSize: 11, color: selectedHotel === h.id ? 'var(--primary)' : 'var(--ink-faint)' }}>
+                              {selectedHotel === h.id ? '● ' + (lang === 'fr' ? 'CHOISI' : 'SELECTED') : '○ ' + (lang === 'fr' ? 'CHOISIR' : 'SELECT')}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -495,15 +528,37 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
               ) : (
                 (dest.activites || []).map(a => {
                   const on = selectedActivities.includes(a.id);
+                  const actFull = a.places_restantes !== undefined && parseInt(a.places_restantes, 10) <= 0;
                   return (
-                    <div key={a.id} className="card-tile" style={{ display: 'grid', gridTemplateColumns: '80px 1fr auto auto', gap: 20, padding: 16, alignItems: 'center', borderColor: on ? 'var(--ink)' : 'var(--line-soft)' }}>
+                    <div
+                      key={a.id}
+                      className="card-tile"
+                      style={{
+                        display: 'grid', gridTemplateColumns: '80px 1fr auto auto', gap: 20, padding: 16, alignItems: 'center',
+                        borderColor: on ? 'var(--ink)' : 'var(--line-soft)',
+                        opacity: actFull && !on ? 0.65 : 1,
+                      }}
+                    >
                       <Placeholder label={(lang === 'fr' ? a.nom_fr : a.nom_en).split(' ').slice(0, 2).join(' ').toUpperCase()} ratio="1/1" cat={dest.type} style={{ height: 64, width: 64 }} />
                       <div>
-                        <div className="serif" style={{ fontSize: 17 }}>{lang === 'fr' ? a.nom_fr : a.nom_en}</div>
+                        <div className="row gap-8" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div className="serif" style={{ fontSize: 17 }}>{lang === 'fr' ? a.nom_fr : a.nom_en}</div>
+                          {actFull && (
+                            <span style={{
+                              background: 'var(--danger)', color: '#fff',
+                              fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                              borderRadius: 4, letterSpacing: '0.05em',
+                            }}>
+                              {lang === 'fr' ? 'COMPLET' : 'SOLD OUT'}
+                            </span>
+                          )}
+                        </div>
                         <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{a.duree} · {a.categorie}</div>
                         {a.places_restantes !== undefined && (
-                          <div className="mono" style={{ fontSize: 11, color: a.places_restantes < 5 ? 'var(--danger)' : 'var(--ok)', marginTop: 3 }}>
-                            {a.places_restantes} {lang === 'fr' ? 'places' : 'spots'}
+                          <div className="mono" style={{ fontSize: 11, color: actFull ? 'var(--danger)' : (a.places_restantes < 5 ? 'var(--danger)' : 'var(--ok)'), marginTop: 3 }}>
+                            {actFull
+                              ? (lang === 'fr' ? '✕ Plus de places disponibles' : '✕ No spots left')
+                              : `${a.places_restantes} ${lang === 'fr' ? 'places' : 'spots'}`}
                           </div>
                         )}
                         {(lang === 'fr' ? a.description_fr : a.description_en) && (
@@ -518,10 +573,11 @@ export default function ScreenDetail({ T, lang, navigate, cart, addToCart, remov
                       </div>
                       <button
                         className={`btn btn-sm ${on ? 'btn-ink' : 'btn-outline'}`}
-                        onClick={() => toggleActivity(a.id)}
-                        disabled={!on && a.places_restantes === 0}
+                        onClick={() => !actFull && toggleActivity(a.id)}
+                        disabled={actFull && !on}
+                        style={{ cursor: actFull && !on ? 'not-allowed' : 'pointer' }}
                       >
-                        {on ? '✓ ' + T.detail.added : '+ ' + T.detail.addItem}
+                        {on ? '✓ ' + T.detail.added : actFull ? (lang === 'fr' ? 'Complet' : 'Full') : '+ ' + T.detail.addItem}
                       </button>
                     </div>
                   );

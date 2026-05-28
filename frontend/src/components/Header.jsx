@@ -6,8 +6,9 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
     { id: 'destinations',  label: T.nav.destinations,  target: 'results' },
     { id: 'stays',         label: T.nav.stays,         target: 'results' },
     { id: 'hebergement',   label: T.nav.hebergement,   target: 'hebergement' },
-    { id: 'activities',    label: T.nav.activities,    target: 'results' },
+    { id: 'activities',    label: T.nav.activities,    target: 'activites' },
     { id: 'transport',     label: T.nav.transport,     target: 'transport' },
+    { id: 'itinerary',     label: lang === 'fr' ? 'Itinéraire' : 'Itinerary', target: 'itinerary' },
   ];
   return (
     <header className="vv-header">
@@ -22,7 +23,8 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
                  screen === l.target ||
                  (l.id === 'destinations' && (screen === 'results' || screen === 'detail')) ||
                  (l.id === 'transport' && screen === 'transport') ||
-                 (l.id === 'hebergement' && screen === 'hebergement')
+                 (l.id === 'hebergement' && screen === 'hebergement') ||
+                 (l.id === 'activities' && screen === 'activites')
                    ? 'active' : ''
                }
                onClick={() => navigate(l.target)}
