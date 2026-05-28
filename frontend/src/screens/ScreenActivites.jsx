@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getActivites } from '../services/activitesService.js';
+import { createNotification } from '../services/notificationService.js';
 import Placeholder from '../components/Placeholder.jsx';
 
 function toLocalISO(d) {
@@ -9,7 +10,7 @@ function toLocalISO(d) {
   return `${y}-${m}-${day}`;
 }
 
-export default function ScreenActivites({ T, lang, navigate, addToCart, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
+export default function ScreenActivites({ T, lang, navigate, user, addToCart, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [activites, setActivites]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [filterCat, setFilterCat]   = useState('');
@@ -490,14 +491,25 @@ export default function ScreenActivites({ T, lang, navigate, addToCart, itinerar
                 onClick={() => {
                   if (!addToCart || !cartDate) return;
                   const name = lang === 'fr' ? cartModal.nom_fr : cartModal.nom_en;
+                  const prix = parseFloat(cartModal.prix) * cartNb;
                   addToCart([{
                     id: `activite-${cartModal.id}-${cartDate}`,
                     kind: 'activite',
                     title: name,
                     sub: `${cartModal.ville || ''}${cartModal.duree ? ' · ' + cartModal.duree : ''} · ${cartDate} · ${cartNb} ${lang === 'fr' ? 'pers.' : 'guest(s)'}`,
-                    price: parseFloat(cartModal.prix) * cartNb,
+                    price: prix,
                     icon: '◇',
                   }]);
+                  if (user?.id) {
+                    createNotification({
+                      utilisateur_id: user.id,
+                      type: 'booking',
+                      titre: lang === 'fr' ? `Activité ajoutée · ${name}` : `Activity added · ${name}`,
+                      message: lang === 'fr'
+                        ? `${name} · ${cartDate} · ${cartNb} pers. · ${prix.toLocaleString('fr-FR')} €`
+                        : `${name} · ${cartDate} · ${cartNb} guest(s) · €${prix.toLocaleString('en-US')}`,
+                    }).catch(() => {});
+                  }
                   setCartModal(null);
                 }}
               >

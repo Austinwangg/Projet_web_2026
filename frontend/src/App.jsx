@@ -148,7 +148,7 @@ export default function App() {
         <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'activites' && (
-        <ScreenActivites T={T} lang={lang} navigate={navigate} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
+        <ScreenActivites T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />

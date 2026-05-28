@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { searchTransports } from '../services/transportsService.js';
 import { getDestinations } from '../services/destinationsService.js';
+import { createNotification } from '../services/notificationService.js';
 
 const TYPE_ICONS = { avion: '✈', train: '🚆', bus: '🚌', voiture: '🚗' };
 const TYPE_LABELS = {
@@ -242,6 +243,18 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
     }]);
     setAddedMsg(lang === 'fr' ? '✓ Transport ajouté au panier' : '✓ Transport added to cart');
     setTimeout(() => setAddedMsg(''), 3000);
+    if (user?.id) {
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'booking',
+        titre: lang === 'fr'
+          ? `Transport ajouté · ${t.depart} → ${t.arrivee}`
+          : `Transport added · ${t.depart} → ${t.arrivee}`,
+        message: lang === 'fr'
+          ? `${t.compagnie || 'Transport'} · ${dateDepart} → ${dateRetour} · ${nbVoyageurs} voyageur(s) · ${(parseFloat(t.prix) * nbVoyageurs).toLocaleString('fr-FR')} €`
+          : `${t.compagnie || 'Transport'} · ${dateDepart} → ${dateRetour} · ${nbVoyageurs} traveler(s) · €${(parseFloat(t.prix) * nbVoyageurs).toLocaleString('en-US')}`,
+      }).catch(() => {});
+    }
   };
 
   const fr = lang === 'fr';

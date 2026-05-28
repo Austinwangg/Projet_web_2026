@@ -90,6 +90,36 @@ class HebergementReservation {
         return $newId;
     }
 
+    public static function update(int $id, array $data): bool {
+        $res = self::getById($id);
+        if (!$res || $res['statut'] === 'annulee') return false;
+
+        $arrivee = \DateTime::createFromFormat('Y-m-d', $data['date_arrivee'] ?? $res['date_arrivee']);
+        $depart  = \DateTime::createFromFormat('Y-m-d', $data['date_depart']  ?? $res['date_depart']);
+        if (!$arrivee || !$depart || $depart <= $arrivee) {
+            throw new \InvalidArgumentException('Dates invalides.');
+        }
+
+        $nbPersonnes = (int) ($data['nb_personnes'] ?? $res['nb_personnes']);
+        $nbNuits     = $arrivee->diff($depart)->days;
+        $hotel       = Hebergement::getById((int) $res['hebergement_id']);
+        $montant     = $nbNuits * (float) ($hotel['prix_nuit'] ?? 0) * $nbPersonnes;
+
+        $diffPersonnes = $nbPersonnes - (int) $res['nb_personnes'];
+        if ($diffPersonnes > 0 && !Hebergement::isAvailable((int) $res['hebergement_id'], $diffPersonnes)) {
+            throw new \RuntimeException("Pas assez de places disponibles.");
+        }
+        if ($diffPersonnes > 0) Hebergement::decrementDispo((int) $res['hebergement_id'], $diffPersonnes);
+        if ($diffPersonnes < 0) Hebergement::incrementDispo((int) $res['hebergement_id'], abs($diffPersonnes));
+
+        $stmt = getDB()->prepare(
+            'UPDATE reservations_hebergement
+             SET date_arrivee = ?, date_depart = ?, nb_personnes = ?, nb_nuits = ?, montant_total = ?
+             WHERE id = ?'
+        );
+        return $stmt->execute([$data['date_arrivee'] ?? $res['date_arrivee'], $data['date_depart'] ?? $res['date_depart'], $nbPersonnes, $nbNuits, $montant, $id]);
+    }
+
     public static function cancel(int $id): bool {
         $res = self::getById($id);
         if (!$res || $res['statut'] === 'annulee') return false;
