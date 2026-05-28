@@ -21,6 +21,7 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [detailId, setDetailId] = useState('shanghai');
   const [cart, setCart] = useState([]);
+  const [itineraryMode, setItineraryMode] = useState(false);
   const [search, setSearch] = useState({
     where: '',
     dates: { start: new Date(2026, 5, 15), end: new Date(2026, 5, 22) },
@@ -43,8 +44,18 @@ export default function App() {
 
   const navigate = (s, args = {}) => {
     if (s === 'detail' && args.id) setDetailId(args.id);
+    if (args.fromItinerary) setItineraryMode(true);
+    if (args.itineraryTravelers !== undefined) setItineraryTravelers(args.itineraryTravelers);
+    if (s === 'itinerary') setItineraryMode(false);
     setScreen(s);
     window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const [itineraryItems, setItineraryItems] = useState([]);
+  const [itineraryTravelers, setItineraryTravelers] = useState(1);
+  const addToItinerary = (item) => {
+    setItineraryItems(prev => [...prev, item]);
+    navigate('itinerary');
   };
 
   const addToCart = (items) => {
@@ -105,13 +116,13 @@ export default function App() {
         <ScreenHome T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
       )}
       {screen === 'results' && (
-        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
+        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} itineraryMode={itineraryMode} addToItinerary={addToItinerary} />
       )}
       {screen === 'detail' && (
         <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} />
       )}
       {screen === 'itinerary' && (
-        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
+        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} pendingItems={itineraryItems} clearPendingItems={() => setItineraryItems([])} />
       )}
       {screen === 'cart' && (
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} updateCartItem={(id, data) => setCart(prev => prev.map(i => i.id === id ? { ...i, ...data } : i))} navigate={navigate} />
@@ -123,13 +134,13 @@ export default function App() {
         <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
       )}
       {screen === 'transport' && (
-        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} />
+        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itineraryTravelers} />
       )}
       {screen === 'hebergement' && (
-        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} />
+        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itineraryTravelers} />
       )}
       {screen === 'activites' && (
-        <ScreenActivites T={T} lang={lang} navigate={navigate} />
+        <ScreenActivites T={T} lang={lang} navigate={navigate} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itineraryTravelers} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />

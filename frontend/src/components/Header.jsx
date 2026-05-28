@@ -4,7 +4,6 @@ import Notifications from './Notifications.jsx';
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
     { id: 'destinations',  label: T.nav.destinations,  target: 'results' },
-    { id: 'stays',         label: T.nav.stays,         target: 'results' },
     { id: 'hebergement',   label: T.nav.hebergement,   target: 'hebergement' },
     { id: 'activities',    label: T.nav.activities,    target: 'activites' },
     { id: 'transport',     label: T.nav.transport,     target: 'transport' },
