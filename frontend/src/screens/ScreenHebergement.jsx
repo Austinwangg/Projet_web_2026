@@ -67,7 +67,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
   const showResults = selectedPays || searchLower.length >= 2;
 
   const nights = calcNights(dateArrivee, dateDepart);
-  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) : 0;
+  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
   const todayISO = toLocalISO(new Date());
 
   const openBooking = (hotel) => {
@@ -93,6 +93,14 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
     }
     if (nights <= 0) {
       setBookingError(lang === 'fr' ? "La date de départ doit être après la date d'arrivée." : 'Check-out must be after check-in.');
+      return;
+    }
+    const dispo = bookingHotel.nb_chambres_dispo ?? 0;
+    if (nbPersonnes > dispo) {
+      const msg = lang === 'fr'
+        ? `Pas assez de chambres disponibles — il reste ${dispo} chambre${dispo > 1 ? 's' : ''}, vous en demandez ${nbPersonnes}.`
+        : `Not enough rooms available — ${dispo} room${dispo > 1 ? 's' : ''} left, you requested ${nbPersonnes}.`;
+      setBookingError(msg);
       return;
     }
     setBookingLoading(true);
@@ -121,7 +129,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
       setBookingSuccess(res.data.reference);
       setAllHotels(prev => prev.map(h =>
         h.id === bookingHotel.id
-          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - 1) }
+          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
           : h
       ));
     } catch (err) {
@@ -426,6 +434,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn })
                         {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
                         {' × '}
                         {Number(bookingHotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                        {' × '}
+                        {nbPersonnes} {lang === 'fr' ? `personne${nbPersonnes > 1 ? 's' : ''}` : `guest${nbPersonnes > 1 ? 's' : ''}`}
                       </div>
                       <div className="serif" style={{ fontSize: 22 }}>
                         {total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €

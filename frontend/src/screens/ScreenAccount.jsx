@@ -212,9 +212,8 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             )}
           <div className="col gap-16">
           {reservations.map(r => {
-            const destSlug = r.slug || '';
-            const destImg  = destinations.find(d => d.id === destSlug)?.imageUrl;
-            const destName = lang === 'fr' ? (r.ville || destSlug) : (r.pays_en || r.ville || destSlug);
+            const destImg  = r.dest_image || destinations.find(d => d.id === (r.slug || ''))?.imageUrl;
+            const destName = lang === 'fr' ? (r.ville || r.slug || '') : (r.pays_en || r.ville || r.slug || '');
             const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>

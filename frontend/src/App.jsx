@@ -59,20 +59,23 @@ export default function App() {
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
   const onAuth = (userData) => {
-    const nom = typeof userData === 'string' ? userData : (userData.nom || '');
-    const parts = nom.trim().split(' ');
+    if (!userData || typeof userData !== 'object') return;
+    // Reconstruit un nom affichable depuis prenom + nom ou nom seul
+    const prenom = userData.prenom || '';
+    const nomFam = userData.nom   || '';
+    const displayName = [prenom, nomFam].filter(Boolean).join(' ') || userData.name || '';
+    const parts    = displayName.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
+    // On conserve TOUS les champs renvoyés par l'API (id, email, role, nom, prenom…)
     const enriched = {
-      id: userData.id ?? null,
-      name: nom,
-      email: userData.email ?? null,
-      role: userData.role ?? 'user',
+      ...userData,
+      name:     displayName,
       initials: initials.toUpperCase(),
     };
     setUser(enriched);
     localStorage.setItem('vv_user', JSON.stringify(enriched));
     setAuthMode(null);
-    setToast(lang === 'fr' ? `Bienvenue, ${parts[0]}` : `Welcome, ${parts[0]}`);
+    setToast(lang === 'fr' ? `Bienvenue, ${parts[0] || displayName}` : `Welcome, ${parts[0] || displayName}`);
   };
 
   const onUpdateUser = (userData) => {

@@ -81,7 +81,7 @@ class Reservation {
         $transportId   = !empty($data['transport_id'])   ? (int) $data['transport_id']   : null;
         $nbVoyageurs   = (int) ($data['nb_voyageurs'] ?? 1);
 
-        if ($hebergementId && !Hebergement::isAvailable($hebergementId)) {
+        if ($hebergementId && !Hebergement::isAvailable($hebergementId, $nbVoyageurs)) {
             throw new \RuntimeException('Hébergement complet — aucune chambre disponible.');
         }
         if ($transportId && !Transport::isAvailable($transportId, $nbVoyageurs)) {
@@ -110,7 +110,7 @@ class Reservation {
         $newId = (int) getDB()->lastInsertId();
 
         if ($hebergementId) {
-            Hebergement::decrementDispo($hebergementId);
+            Hebergement::decrementDispo($hebergementId, $nbVoyageurs);
         }
         if ($transportId) {
             Transport::decrementPlaces($transportId, $nbVoyageurs);
@@ -192,7 +192,7 @@ class Reservation {
         $stmt->execute([$id]);
 
         if (!empty($res['hebergement_id'])) {
-            Hebergement::incrementDispo((int) $res['hebergement_id']);
+            Hebergement::incrementDispo((int) $res['hebergement_id'], (int) $res['nb_voyageurs']);
         }
         if (!empty($res['transport_id'])) {
             Transport::incrementPlaces((int) $res['transport_id'], (int) $res['nb_voyageurs']);
