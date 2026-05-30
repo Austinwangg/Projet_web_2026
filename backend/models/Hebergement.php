@@ -68,6 +68,14 @@ class Hebergement {
         return $stmt->execute([$id]);
     }
 
+    public static function isAvailable(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare('SELECT nb_chambres_dispo FROM hebergements WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row && (int) $row['nb_chambres_dispo'] >= $nb;
+    }
+
+    public static function decrementDispo(int $id, int $nb = 1): bool {
     public static function isAvailable(int $id, int $nbPersonnes = 1): bool {
         $stmt = getDB()->prepare('SELECT nb_chambres_dispo FROM hebergements WHERE id = ?');
         $stmt->execute([$id]);
@@ -80,6 +88,15 @@ class Hebergement {
             'UPDATE hebergements SET nb_chambres_dispo = nb_chambres_dispo - ?
              WHERE id = ? AND nb_chambres_dispo >= ?'
         );
+        $stmt->execute([$nb, $id, $nb]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public static function incrementDispo(int $id, int $nb = 1): bool {
+        $stmt = getDB()->prepare(
+            'UPDATE hebergements SET nb_chambres_dispo = nb_chambres_dispo + ? WHERE id = ?'
+        );
+        return $stmt->execute([$nb, $id]);
         $stmt->execute([$qty, $id, $qty]);
         return $stmt->rowCount() > 0;
     }

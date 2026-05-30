@@ -276,6 +276,8 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             )}
           <div className="col gap-16">
           {reservations.map(r => {
+            const destImg  = r.dest_image || destinations.find(d => d.id === (r.slug || ''))?.imageUrl;
+            const destName = lang === 'fr' ? (r.ville || r.slug || '') : (r.pays_en || r.ville || r.slug || '');
             const destSlug = r.slug || '';
             const destImg  = r.dest_image || null;
             const destName = lang === 'fr'

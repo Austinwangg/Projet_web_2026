@@ -215,6 +215,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
   const showResults = true;
 
   const nights = calcNights(dateArrivee, dateDepart);
+  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
+  const todayISO = toLocalISO(new Date());
   // Prix total = nuits × prix/nuit × nombre de personnes
   const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
 
@@ -241,6 +243,48 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
     if (nights <= 0) {
       setBookingError(lang === 'fr' ? "La date de départ doit être après la date d'arrivée." : 'Check-out must be after check-in.');
       return;
+    }
+    const dispo = bookingHotel.nb_chambres_dispo ?? 0;
+    if (nbPersonnes > dispo) {
+      const msg = lang === 'fr'
+        ? `Pas assez de chambres disponibles — il reste ${dispo} chambre${dispo > 1 ? 's' : ''}, vous en demandez ${nbPersonnes}.`
+        : `Not enough rooms available — ${dispo} room${dispo > 1 ? 's' : ''} left, you requested ${nbPersonnes}.`;
+      setBookingError(msg);
+      return;
+    }
+    setBookingLoading(true);
+    setBookingError('');
+    try {
+      const res = await createHebergementReservation({
+        utilisateur_id: user.id,
+        hebergement_id: bookingHotel.id,
+        date_arrivee: dateArrivee,
+        date_depart: dateDepart,
+        nb_personnes: nbPersonnes,
+        montant_total: total,
+      });
+
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'booking',
+        titre: lang === 'fr'
+          ? `Hôtel réservé — ${bookingHotel.nom}`
+          : `Hotel booked — ${bookingHotel.nom}`,
+        message: lang === 'fr'
+          ? `Réservation ${res.data.reference} confirmée · ${nights} nuit${nights > 1 ? 's' : ''} · ${total.toLocaleString('fr-FR')} €`
+          : `Booking ${res.data.reference} confirmed · ${nights} night${nights > 1 ? 's' : ''} · €${total.toLocaleString('en-US')}`,
+      }).catch(() => {});
+
+      setBookingSuccess(res.data.reference);
+      setAllHotels(prev => prev.map(h =>
+        h.id === bookingHotel.id
+          ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
+          : h
+      ));
+    } catch (err) {
+      setBookingError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la réservation.' : 'Booking error.'));
+    } finally {
+      setBookingLoading(false);
     }
 
     addToCart([{
@@ -680,6 +724,15 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                       borderRadius: 8,
                       padding: '14px 16px',
                     }}>
+                      <div className="muted" style={{ fontSize: 13 }}>
+                        {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
+                        {' × '}
+                        {Number(bookingHotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
+                        {' × '}
+                        {nbPersonnes} {lang === 'fr' ? `personne${nbPersonnes > 1 ? 's' : ''}` : `guest${nbPersonnes > 1 ? 's' : ''}`}
+                      </div>
+                      <div className="serif" style={{ fontSize: 22 }}>
+                        {total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div className="muted" style={{ fontSize: 13 }}>
                           {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
