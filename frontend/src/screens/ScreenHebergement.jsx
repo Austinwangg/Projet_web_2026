@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api.js';
 import Placeholder from '../components/Placeholder.jsx';
+import { createHebergementReservation } from '../services/hebergementReservationsService.js';
+import { createNotification } from '../services/notificationService.js';
 
 function toLocalISO(d) {
   const y = d.getFullYear();
@@ -186,6 +188,8 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
   const [itinDateDepart, setItinDateDepart] = useState('');
   const [itinNbPersonnes, setItinNbPersonnes] = useState(1);
   const [bookingError, setBookingError] = useState('');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(null);
 
   const todayISO = toLocalISO(new Date());
 
@@ -279,28 +283,26 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
           ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
           : h
       ));
+      addToCart([{
+        id: `hotel-${bookingHotel.id}-${dateArrivee}`,
+        kind: 'hotel',
+        hebergementDbId: bookingHotel.id,
+        destSlug: bookingHotel.dest_slug || '',
+        title: bookingHotel.nom,
+        sub: `${nights} nuit${nights > 1 ? 's' : ''} · ${nbPersonnes} pers. · ${dateArrivee} → ${dateDepart}`,
+        price: total,
+        priceUnit: 'total',
+        nbVoyageurs: nbPersonnes,
+        dateDepart: dateArrivee,
+        dateRetour: dateDepart,
+        icon: '🏨',
+      }]);
+      closeBooking();
     } catch (err) {
       setBookingError(err.response?.data?.error || (lang === 'fr' ? 'Erreur lors de la réservation.' : 'Booking error.'));
     } finally {
       setBookingLoading(false);
     }
-
-    addToCart([{
-      id: `hotel-${bookingHotel.id}-${dateArrivee}`,
-      kind: 'hotel',
-      hebergementDbId: bookingHotel.id,
-      destSlug: bookingHotel.dest_slug || '',
-      title: bookingHotel.nom,
-      sub: `${nights} nuit${nights > 1 ? 's' : ''} · ${nbPersonnes} pers. · ${dateArrivee} → ${dateDepart}`,
-      price: total,
-      priceUnit: 'total',
-      nbVoyageurs: nbPersonnes,
-      dateDepart: dateArrivee,
-      dateRetour: dateDepart,
-      icon: '🏨',
-    }]);
-
-    closeBooking();
   };
 
   const availColor = (n) => {
@@ -750,12 +752,14 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                   <button
                     className="btn btn-primary"
                     style={{ width: '100%', marginTop: 4 }}
-                    disabled={nights <= 0}
+                    disabled={nights <= 0 || bookingLoading}
                     onClick={handleBook}
                   >
-                    {nights > 0
-                      ? `🛒 ${lang === 'fr' ? 'Ajouter au panier' : 'Add to cart'} · ${total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €`
-                      : (lang === 'fr' ? 'Choisissez les dates' : 'Select the dates')}
+                    {bookingLoading
+                      ? '…'
+                      : nights > 0
+                        ? `🛒 ${lang === 'fr' ? 'Ajouter au panier' : 'Add to cart'} · ${total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €`
+                        : (lang === 'fr' ? 'Choisissez les dates' : 'Select the dates')}
                   </button>
                 </div>
               </>

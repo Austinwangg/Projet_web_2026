@@ -45,16 +45,16 @@ class HebergementReservation {
             throw new \InvalidArgumentException("La date d'arrivée ne peut pas être dans le passé.");
         }
         if ($depart <= $arrivee) {
-            throw new \InvalidArgumentException('La date de départ doit être postérieure à la date d\'arrivée.');
+            throw new \InvalidArgumentException("La date de départ doit être postérieure à la date d'arrivée.");
         }
 
         $hebergementId = (int) ($data['hebergement_id'] ?? 0);
         if (!$hebergementId) {
-            throw new \InvalidArgumentException('ID d\'hébergement manquant.');
+            throw new \InvalidArgumentException("ID d'hébergement manquant.");
         }
 
-        $nbNuits     = $arrivee->diff($depart)->days;
         $nbPersonnes = max(1, (int) ($data['nb_personnes'] ?? 1));
+        $nbNuits     = $arrivee->diff($depart)->days;
 
         if (!Hebergement::isAvailable($hebergementId, $nbPersonnes)) {
             $h = Hebergement::getById($hebergementId);
@@ -65,16 +65,12 @@ class HebergementReservation {
             throw new \RuntimeException(
                 "Pas assez de chambres disponibles — il reste $dispo chambre" . ($dispo > 1 ? 's' : '') . ", vous en demandez $nbPersonnes."
             );
-        $nbPersonnes = (int) ($data['nb_personnes'] ?? 1);
-        $nbNuits     = $arrivee->diff($depart)->days;
-
-        if (!Hebergement::isAvailable($hebergementId, $nbPersonnes)) {
-            throw new \RuntimeException("Pas assez de places disponibles pour {$nbPersonnes} personne(s).");
         }
-        $hotel       = Hebergement::getById($hebergementId);
-        $montant     = isset($data['montant_total']) && $data['montant_total'] > 0
+
+        $hotel   = Hebergement::getById($hebergementId);
+        $montant = isset($data['montant_total']) && $data['montant_total'] > 0
             ? (float) $data['montant_total']
-            : $nbNuits * (float) ($hotel['prix_nuit'] ?? 0);
+            : $nbNuits * (float) ($hotel['prix_nuit'] ?? 0) * $nbPersonnes;
 
         $ref = 'VVH-' . strtoupper(substr(uniqid(), -6));
 
@@ -129,7 +125,14 @@ class HebergementReservation {
              SET date_arrivee = ?, date_depart = ?, nb_personnes = ?, nb_nuits = ?, montant_total = ?
              WHERE id = ?'
         );
-        return $stmt->execute([$data['date_arrivee'] ?? $res['date_arrivee'], $data['date_depart'] ?? $res['date_depart'], $nbPersonnes, $nbNuits, $montant, $id]);
+        return $stmt->execute([
+            $data['date_arrivee'] ?? $res['date_arrivee'],
+            $data['date_depart']  ?? $res['date_depart'],
+            $nbPersonnes,
+            $nbNuits,
+            $montant,
+            $id,
+        ]);
     }
 
     public static function cancel(int $id): bool {
@@ -140,8 +143,6 @@ class HebergementReservation {
         $stmt->execute([$id]);
 
         Hebergement::incrementDispo((int) $res['hebergement_id'], (int) $res['nb_personnes']);
-        $nbPersonnes = (int) ($res['nb_personnes'] ?? 1);
-        Hebergement::incrementDispo((int) $res['hebergement_id'], $nbPersonnes);
 
         return true;
     }
