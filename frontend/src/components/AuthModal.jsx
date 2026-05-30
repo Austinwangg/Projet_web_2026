@@ -8,9 +8,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
   const [name, setName]         = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (mode) {
@@ -39,7 +36,6 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
       onAuth(userData);
     } catch (err) {
       setError(err.response?.data?.error || 'Une erreur est survenue.');
-      setError(err.response?.data?.error || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -62,11 +58,11 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
           {isSignup && (
             <div>
               <label className="field-label">{T.auth.name}</label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Jean Dupont" />
               <input
                 className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onKeyDown={handleKey}
                 placeholder="Jean Dupont"
               />
             </div>
@@ -78,6 +74,7 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={handleKey}
               placeholder="jean@exemple.com"
             />
           </div>
@@ -88,8 +85,8 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKey}
               placeholder="••••••••"
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
           </div>
 
@@ -101,14 +98,12 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
 
           {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
 
-          <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
-            {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           <button
             className="btn btn-primary btn-lg"
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? '…' : isSignup ? T.auth.signup : T.auth.signin}
+            {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
           </button>
 
           <div className="center muted" style={{ fontSize: 13 }}>
