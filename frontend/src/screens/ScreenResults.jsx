@@ -17,7 +17,7 @@ function diffDays(start, end) {
 }
 
 
-export default function ScreenResults({ T, lang, search, setSearch, navigate, cardStyle }) {
+export default function ScreenResults({ T, lang, search, setSearch, navigate, cardStyle, itineraryMode, addToItinerary, favorites = [], toggleFavorite }) {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,6 +118,39 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
 
   return (
     <main className="container" style={{ paddingTop: 24 }}>
+
+      {/* Bandeau mode sélection itinéraire */}
+      {itineraryMode && (
+        <div style={{
+          background: 'color-mix(in oklab, #f59e0b 15%, var(--surface))',
+          border: '2px solid #f59e0b',
+          borderRadius: 12,
+          padding: '14px 20px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🗺️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>
+                {lang === 'fr' ? 'Mode sélection — Itinéraire' : 'Selection mode — Itinerary'}
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-faint)', marginTop: 2 }}>
+                {lang === 'fr'
+                  ? 'Cliquez sur une destination pour l\'ajouter à votre itinéraire.'
+                  : 'Click a destination to add it to your itinerary.'}
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('itinerary')}>
+            ← {lang === 'fr' ? 'Retour à l\'itinéraire' : 'Back to itinerary'}
+          </button>
+        </div>
+      )}
+
       <div style={{ marginBottom: 32 }}>
         <SearchBar T={T} lang={lang} value={search} setValue={setSearch} onSearch={() => {}} compact />
       </div>
@@ -242,8 +275,54 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
           ) : view === 'grid' ? (
             <div className={`grid grid-3 ${cardStyle === 'illustrated' ? 'card-illustrated' : ''}`}>
               {filtered.map((d, i) => (
-                <button key={d.id} className="dest fade-up" style={{ animationDelay: `${i * 30}ms` }} onClick={() => navigate('detail', { id: d.id })}>
+                <button
+                  key={d.id}
+                  className="dest fade-up"
+                  style={{ animationDelay: `${i * 30}ms`, position: 'relative' }}
+                  onClick={() => {
+                    if (itineraryMode && addToItinerary) {
+                      addToItinerary({
+                        type: 'autre',
+                        ref_id: d.dbId,
+                        titre: `${d.city}${lang === 'fr' ? `, ${d.country}` : `, ${d.countryEn}`}`,
+                        sous_titre: `${d.durationDays} ${lang === 'fr' ? 'jours' : 'days'} · ${lang === 'fr' ? d.tag : d.tagEn}`,
+                        prix: d.priceFrom || 0,
+                        icone: '🌍',
+                        date_item: null,
+                      });
+                    } else {
+                      navigate('detail', { id: d.id });
+                    }
+                  }}
+                >
                   <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
+                  {itineraryMode && (
+                    <div style={{
+                      position: 'absolute', top: 10, right: 10,
+                      background: '#f59e0b', color: '#fff',
+                      fontSize: 11, fontWeight: 700, padding: '4px 10px',
+                      borderRadius: 6,
+                    }}>
+                      {lang === 'fr' ? '+ Itinéraire' : '+ Itinerary'}
+                    </div>
+                  )}
+                  {!itineraryMode && (
+                    <button
+                      onClick={e => { e.stopPropagation(); if (toggleFavorite) toggleFavorite(d.dbId); }}
+                      style={{
+                        position: 'absolute', top: 10, right: 10,
+                        background: favorites.includes(d.dbId) ? 'rgba(239,68,68,0.9)' : 'rgba(255,255,255,0.85)',
+                        color: favorites.includes(d.dbId) ? '#fff' : '#ef4444',
+                        border: 'none', borderRadius: '50%',
+                        width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+                        display: 'grid', placeItems: 'center',
+                        boxShadow: '0 1px 4px rgba(0,0,0,.15)',
+                      }}
+                      title={favorites.includes(d.dbId) ? (lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites') : (lang === 'fr' ? 'Ajouter aux favoris' : 'Add to favorites')}
+                    >
+                      {favorites.includes(d.dbId) ? '♥' : '♡'}
+                    </button>
+                  )}
                   <div className="dest-meta">
                     <div>
                       <div className="dest-name">{d.city}</div>
@@ -269,7 +348,21 @@ export default function ScreenResults({ T, lang, search, setSearch, navigate, ca
           ) : (
             <div className={`col gap-16 ${cardStyle === 'illustrated' ? 'card-illustrated' : ''}`}>
               {filtered.map((d, i) => (
-                <button key={d.id} className="card fade-up" style={{ display: 'grid', gridTemplateColumns: '280px 1fr auto', gap: 24, padding: 16, alignItems: 'center', border: '1px solid var(--line-soft)', background: 'var(--surface)', textAlign: 'left', animationDelay: `${i * 30}ms` }} onClick={() => navigate('detail', { id: d.id })}>
+                <button key={d.id} className="card fade-up" style={{ display: 'grid', gridTemplateColumns: '280px 1fr auto', gap: 24, padding: 16, alignItems: 'center', border: '1px solid var(--line-soft)', background: 'var(--surface)', textAlign: 'left', animationDelay: `${i * 30}ms` }} onClick={() => {
+                  if (itineraryMode && addToItinerary) {
+                    addToItinerary({
+                      type: 'autre',
+                      ref_id: d.dbId,
+                      titre: `${d.city}${lang === 'fr' ? `, ${d.country}` : `, ${d.countryEn}`}`,
+                      sous_titre: `${d.durationDays} ${lang === 'fr' ? 'jours' : 'days'} · ${lang === 'fr' ? d.tag : d.tagEn}`,
+                      prix: d.priceFrom || 0,
+                      icone: '🌍',
+                      date_item: null,
+                    });
+                  } else {
+                    navigate('detail', { id: d.id });
+                  }
+                }}>
                   <Placeholder label={d.ph} ratio="16/10" cat={d.type} imageUrl={d.imageUrl} />
                   <div>
                     <div className="row gap-8" style={{ marginBottom: 6 }}>

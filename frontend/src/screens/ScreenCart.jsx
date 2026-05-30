@@ -18,8 +18,9 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, navigate }) 
       <div className="stepper mb-32">
         <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Composition' : 'Compose'}</div>
         <div className="step active"><div className="step-num">2</div>{lang === 'fr' ? 'Panier' : 'Cart'}</div>
-        <div className="step"><div className="step-num">3</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
-        <div className="step"><div className="step-num">4</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
+        <div className="step"><div className="step-num">3</div>{lang === 'fr' ? 'Informations' : 'Passengers'}</div>
+        <div className="step"><div className="step-num">4</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
+        <div className="step"><div className="step-num">5</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
       </div>
 
       <div className="between mb-32" style={{ alignItems: 'flex-end' }}>
@@ -53,7 +54,6 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, navigate }) 
                 </div>
                 <div className="row gap-12">
                   <span className="cart-price">{item.price.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
-                  <button className="btn btn-ghost btn-sm" title={T.cart.edit}>✎</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => removeFromCart(item.id)} title={T.cart.remove} style={{ color: 'var(--danger)' }}>✕</button>
                 </div>
               </div>
@@ -91,12 +91,13 @@ export default function ScreenCart({ T, lang, cart, removeFromCart, navigate }) 
             <div className="muted mono mb-24" style={{ fontSize: 11, letterSpacing: '0.08em' }}>
               {T.cart.for(travelers, days).toUpperCase()}
             </div>
-            <button className="btn btn-primary btn-lg" style={{ width: '100%' }} onClick={() => navigate('payment')}>
+            <button className="btn btn-primary btn-lg" style={{ width: '100%' }} onClick={() => navigate('passengers')}>
               {T.cart.pay} →
             </button>
           </aside>
         </div>
       )}
+
     </main>
   );
 }

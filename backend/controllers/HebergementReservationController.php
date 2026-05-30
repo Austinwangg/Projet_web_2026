@@ -49,6 +49,8 @@ class HebergementReservationController {
                 try {
                     if (isset($data['statut']) && $data['statut'] === 'annulee') {
                         HebergementReservation::cancel($id);
+                    } else {
+                        HebergementReservation::update($id, $data);
                     }
                     echo json_encode(['message' => 'Réservation mise à jour'], JSON_UNESCAPED_UNICODE);
                 } catch (\Exception $e) {

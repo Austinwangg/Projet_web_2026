@@ -1,12 +1,109 @@
 import { useState, useEffect, useMemo } from 'react';
 import { searchTransports } from '../services/transportsService.js';
 import { getDestinations } from '../services/destinationsService.js';
+import { createNotification } from '../services/notificationService.js';
+import DateRangePicker from '../components/DateRangePicker.jsx';
 
 const TYPE_ICONS = { avion: '✈', train: '🚆', bus: '🚌', voiture: '🚗' };
 const TYPE_LABELS = {
   fr: { avion: 'Avion', train: 'Train', bus: 'Bus', voiture: 'Voiture' },
   en: { avion: 'Plane', train: 'Train', bus: 'Bus', voiture: 'Car' },
 };
+
+const COMPANY_DOMAINS = {
+  'air france': 'airfrance.com',
+  'air france hop': 'airfrance.com',
+  'transavia': 'transavia.com',
+  'tap': 'flytap.com',
+  'tap air portugal': 'flytap.com',
+  'royal air maroc': 'royalairmaroc.com',
+  'vietnam airlines': 'vietnamairlines.com',
+  'norwegian': 'norwegian.com',
+  'aeromexico': 'aeromexico.com',
+  'aeroméxico': 'aeromexico.com',
+  'sncf': 'sncf.com',
+  'sncf + renfe': 'sncf.com',
+  'sncf + ferry': 'sncf.com',
+  'flixbus': 'flixbus.com',
+  'ouigo': 'ouigo.com',
+  'eurostar': 'eurostar.com',
+  'eurolines': 'eurolines.com',
+  'easyjet': 'easyjet.com',
+  'ryanair': 'ryanair.com',
+  'lufthansa': 'lufthansa.com',
+  'british airways': 'britishairways.com',
+  'emirates': 'emirates.com',
+  'qatar airways': 'qatarairways.com',
+  'vueling': 'vueling.com',
+  'icelandair': 'icelandair.com',
+  'aegean': 'aegeanair.com',
+  'turkish airlines': 'turkishairlines.com',
+  'air transat': 'airtransat.com',
+  'china eastern': 'ceair.com',
+  'cathay pacific': 'cathaypacific.com',
+  'corsair': 'corsair.fr',
+  'kenya airways': 'kenya-airways.com',
+  'air austral': 'air-austral.com',
+  'lan': 'latam.com',
+  'latam': 'latam.com',
+  'copa airlines': 'copaair.com',
+};
+
+// Palette déterministe selon la première lettre
+function companyColor(name) {
+  const palette = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6'];
+  const idx = (name?.charCodeAt(0) || 0) % palette.length;
+  return palette[idx];
+}
+
+function CompanyLogo({ compagnie, type, size = 52 }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError]   = useState(false);
+  const domain = compagnie ? COMPANY_DOMAINS[compagnie.toLowerCase()] : null;
+  const initials = compagnie
+    ? compagnie.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : TYPE_ICONS[type] || '✈';
+  const bgColor = companyColor(compagnie);
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 12,
+      background: domain && !imgError ? '#fff' : bgColor,
+      display: 'grid', placeItems: 'center',
+      flexShrink: 0,
+      overflow: 'hidden',
+      border: domain && !imgError ? '1px solid var(--line-soft)' : 'none',
+      position: 'relative',
+    }}>
+      {/* Initiales (toujours présentes, cachées si image chargée) */}
+      {(!domain || imgError) && (
+        <span style={{ color: '#fff', fontWeight: 700, fontSize: Math.round(size * 0.3), letterSpacing: '-0.02em', fontFamily: 'Inter, sans-serif' }}>
+          {initials}
+        </span>
+      )}
+      {/* Favicon Google (tente de charger si on connaît le domaine) */}
+      {domain && !imgError && (
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+          alt={compagnie}
+          style={{
+            width: size - 18, height: size - 18,
+            objectFit: 'contain',
+            display: imgLoaded ? 'block' : 'none',
+          }}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => setImgError(true)}
+        />
+      )}
+      {/* Placeholder coloré pendant le chargement */}
+      {domain && !imgError && !imgLoaded && (
+        <span style={{ color: bgColor, fontWeight: 700, fontSize: Math.round(size * 0.3), letterSpacing: '-0.02em' }}>
+          {initials}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function toLocalISO(d) {
   const y = d.getFullYear();
@@ -36,7 +133,7 @@ function validateDates(depart, retour) {
   return null;
 }
 
-export default function ScreenTransport({ T, lang, navigate, user, addToCart, searchDates, searchTravelers }) {
+export default function ScreenTransport({ T, lang, navigate, user, addToCart, searchDates, searchTravelers, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
   const [destinations, setDestinations] = useState([]);
 
   // Filtres
@@ -46,17 +143,20 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
   const [prixMin, setPrixMin]       = useState('');
   const [sortBy, setSortBy]         = useState('prix_asc');
 
-  // Dates
-  const [dateDepart, setDateDepart] = useState(() =>
-    searchDates?.start instanceof Date ? toLocalISO(searchDates.start) : today()
-  );
-  const [dateRetour, setDateRetour] = useState(() =>
-    searchDates?.end instanceof Date ? toLocalISO(searchDates.end) : addDays(today(), 7)
-  );
+  // Dates — priorité à itineraryDates quand on vient de l'itinéraire
+  const [dateDepart, setDateDepart] = useState(() => {
+    if (itineraryDates?.depart) return itineraryDates.depart;
+    return searchDates?.start instanceof Date ? toLocalISO(searchDates.start) : today();
+  });
+  const [dateRetour, setDateRetour] = useState(() => {
+    if (itineraryDates?.retour) return itineraryDates.retour;
+    return searchDates?.end instanceof Date ? toLocalISO(searchDates.end) : addDays(today(), 7);
+  });
   const [dateError, setDateError]   = useState('');
 
-  // Voyageurs
+  // Voyageurs — priorité à itineraryTravelers quand on vient de l'itinéraire
   const [nbVoyageurs, setNbVoyageurs] = useState(() => {
+    if (itineraryTravelers && itineraryTravelers > 0) return itineraryTravelers;
     if (!searchTravelers) return 2;
     return (searchTravelers.adult || 0) + (searchTravelers.student || 0) + (searchTravelers.child || 0) || 2;
   });
@@ -72,6 +172,12 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
     getDestinations()
       .then(r => setDestinations(Array.isArray(r.data) ? r.data : []))
       .catch(() => {});
+    // Charger tous les transports dès l'ouverture de la page
+    setLoading(true);
+    setSearched(true);
+    searchTransports({}).then(r => {
+      setResults(Array.isArray(r.data) ? r.data : []);
+    }).catch(() => setResults([])).finally(() => setLoading(false));
   }, []);
 
   const handleSearch = async (e) => {
@@ -131,6 +237,8 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
       title: `${lang === 'fr' ? 'Transport' : 'Transport'} · ${t.depart} → ${t.arrivee}`,
       sub: `${t.compagnie || ''} · ${t.duree || ''} · ${dateDepart} → ${dateRetour}`,
       price: parseFloat(t.prix) * nbVoyageurs,
+      pricePerUnit: parseFloat(t.prix),
+      priceUnit: 'per_person',
       icon: TYPE_ICONS[t.type] || '✈',
       dateDepart,
       dateRetour,
@@ -138,6 +246,18 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
     }]);
     setAddedMsg(lang === 'fr' ? '✓ Transport ajouté au panier' : '✓ Transport added to cart');
     setTimeout(() => setAddedMsg(''), 3000);
+    if (user?.id) {
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'booking',
+        titre: lang === 'fr'
+          ? `Transport ajouté · ${t.depart} → ${t.arrivee}`
+          : `Transport added · ${t.depart} → ${t.arrivee}`,
+        message: lang === 'fr'
+          ? `${t.compagnie || 'Transport'} · ${dateDepart} → ${dateRetour} · ${nbVoyageurs} voyageur(s) · ${(parseFloat(t.prix) * nbVoyageurs).toLocaleString('fr-FR')} €`
+          : `${t.compagnie || 'Transport'} · ${dateDepart} → ${dateRetour} · ${nbVoyageurs} traveler(s) · €${(parseFloat(t.prix) * nbVoyageurs).toLocaleString('en-US')}`,
+      }).catch(() => {});
+    }
   };
 
   const fr = lang === 'fr';
@@ -145,6 +265,44 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>
+
+      {/* Bandeau mode sélection itinéraire */}
+      {itineraryMode && (
+        <div style={{
+          background: 'color-mix(in oklab, #f59e0b 15%, var(--surface))',
+          border: '2px solid #f59e0b',
+          borderRadius: 12,
+          padding: '14px 20px',
+          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🗺️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>
+                {lang === 'fr' ? 'Mode sélection — Itinéraire' : 'Selection mode — Itinerary'}
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-faint)', marginTop: 2 }}>
+                {lang === 'fr'
+                  ? 'Sélectionnez un trajet puis cliquez sur "Ajouter à l\'itinéraire" pour revenir.'
+                  : 'Select a route then click "Add to itinerary" to return.'}
+              </div>
+            </div>
+          </div>
+          <div className="row gap-8">
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--ink-faint)' }} onClick={() => navigate('itinerary')}>
+              {lang === 'fr' ? 'Passer cette étape →' : 'Skip this step →'}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('itinerary')}>
+              ← {lang === 'fr' ? 'Retour à l\'itinéraire' : 'Back to itinerary'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* En-tête */}
       <div className="mb-32">
         <span className="eyebrow">{fr ? 'PLANIFICATION DES TRAJETS' : 'TRIP PLANNING'}</span>
@@ -239,47 +397,18 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
 
             {/* Dates */}
             <div>
-              <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
-                {fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
-              </label>
-              <div className="col gap-8">
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {fr ? 'DÉPART' : 'DEPARTURE'}
-                  </label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={dateDepart}
-                    min={today()}
-                    style={{ width: '100%', marginTop: 4 }}
-                    onChange={e => {
-                      setDateDepart(e.target.value);
-                      setDateError('');
-                      // Auto-ajuste retour si incohérent
-                      if (dateRetour && e.target.value >= dateRetour) {
-                        setDateRetour(addDays(e.target.value, 1));
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em' }}>
-                    {fr ? 'RETOUR' : 'RETURN'}
-                  </label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={dateRetour}
-                    min={addDays(dateDepart, 1) || today()}
-                    style={{ width: '100%', marginTop: 4 }}
-                    onChange={e => {
-                      setDateRetour(e.target.value);
-                      setDateError('');
-                    }}
-                  />
-                </div>
-              </div>
+              <DateRangePicker
+                depart={dateDepart}
+                retour={dateRetour}
+                onChangeDates={({ depart, retour }) => {
+                  setDateDepart(depart);
+                  setDateRetour(retour);
+                  setDateError('');
+                }}
+                T={T}
+                lang={lang}
+                label={fr ? 'DATES DU TRAJET' : 'TRAVEL DATES'}
+              />
               {dateError && (
                 <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)', padding: '6px 10px', borderRadius: 6, background: 'color-mix(in oklab, var(--danger) 10%, transparent)' }}>
                   {dateError}
@@ -392,15 +521,8 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
               >
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', gap: 20, alignItems: 'center' }}>
 
-                  {/* Type icône */}
-                  <div style={{
-                    width: 52, height: 52, borderRadius: 12,
-                    background: 'var(--surface-2)',
-                    display: 'grid', placeItems: 'center',
-                    fontSize: 24,
-                  }}>
-                    {TYPE_ICONS[t.type] || '✈'}
-                  </div>
+                  {/* Logo compagnie */}
+                  <CompanyLogo compagnie={t.compagnie} type={t.type} size={52} />
 
                   {/* Infos trajet */}
                   <div>
@@ -454,55 +576,45 @@ export default function ScreenTransport({ T, lang, navigate, user, addToCart, se
                   </div>
                 </div>
 
-                {/* Panneau dates (visible quand sélectionné) */}
+                {/* Panneau action (visible quand sélectionné) */}
                 {isSelected && (
                   <div className="fade-up" style={{
                     marginTop: 20, paddingTop: 20,
                     borderTop: '1px solid var(--line-soft)',
-                    display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 16, alignItems: 'flex-end',
+                    display: 'flex', justifyContent: 'flex-end', gap: 12,
                   }}>
-                    <div>
-                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
-                        {fr ? 'DATE DE DÉPART' : 'DEPARTURE DATE'}
-                      </label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateDepart}
-                        min={today()}
-                        style={{ width: '100%' }}
-                        onChange={e => {
-                          setDateDepart(e.target.value);
-                          setDateError('');
-                          if (dateRetour && e.target.value >= dateRetour) {
-                            setDateRetour(addDays(e.target.value, 1));
-                          }
+                    {itineraryMode ? (
+                      <button
+                        className="btn btn-primary"
+                        style={{ whiteSpace: 'nowrap', height: 44, background: '#f59e0b', border: 'none' }}
+                        onClick={() => {
+                          const err = validateDates(dateDepart, dateRetour);
+                          if (err) { setDateError(err); return; }
+                          const t = results.find(r => r.id === selected);
+                          if (!t || !addToItinerary) return;
+                          addToItinerary({
+                            type: 'transport',
+                            ref_id: t.id,
+                            destSlug: destinations.find(d => d.id === t.destination_id)?.slug || '',
+                            titre: `${t.depart} → ${t.arrivee}`,
+                            sous_titre: `${t.compagnie || ''} · ${t.duree || ''} · ${dateDepart} → ${dateRetour}`,
+                            prix: parseFloat(t.prix) * nbVoyageurs,
+                            icone: TYPE_ICONS[t.type] || '✈',
+                            date_item: dateDepart,
+                          });
                         }}
-                      />
-                    </div>
-                    <div>
-                      <label className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>
-                        {fr ? 'DATE DE RETOUR' : 'RETURN DATE'}
-                      </label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateRetour}
-                        min={addDays(dateDepart, 1) || today()}
-                        style={{ width: '100%' }}
-                        onChange={e => {
-                          setDateRetour(e.target.value);
-                          setDateError('');
-                        }}
-                      />
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleAddToCart}
-                      style={{ whiteSpace: 'nowrap', height: 44 }}
-                    >
-                      {fr ? '+ Ajouter au panier' : '+ Add to cart'}
-                    </button>
+                      >
+                        {fr ? '+ Ajouter à l\'itinéraire' : '+ Add to itinerary'}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleAddToCart}
+                        style={{ whiteSpace: 'nowrap', height: 44 }}
+                      >
+                        {fr ? '+ Ajouter au panier' : '+ Add to cart'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

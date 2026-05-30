@@ -1,14 +1,30 @@
 import { useState, useEffect } from 'react';
-import { destinations } from '../data.js';
 import Placeholder from '../components/Placeholder.jsx';
 import { updateProfile, changePassword } from '../services/authService.js';
 import { getNotifications, markRead, markAllRead, deleteNotification, createNotification } from '../services/notificationService.js';
-import { updateReservationStatus } from '../services/reservationsService.js';
+import { updateReservationStatus, cancelActiviteFromReservation } from '../services/reservationsService.js';
 import { getHebergementReservationsByUser, cancelHebergementReservation } from '../services/hebergementReservationsService.js';
 import api from '../services/api.js';
 
-export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser }) {
+export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser, favorites = [], toggleFavorite }) {
   const [tab, setTab] = useState('bookings');
+  const [destinations, setDestinations] = useState([]);
+
+  useEffect(() => {
+    api.get('/destinations').then(r => {
+      const raw = Array.isArray(r.data) ? r.data : [];
+      setDestinations(raw.map(d => ({
+        id: d.id,
+        slug: d.slug,
+        city: d.ville,
+        country: d.pays_fr,
+        countryEn: d.pays_en,
+        type: d.type,
+        imageUrl: d.image_url || '',
+        ph: (d.ville || '').toUpperCase(),
+      })));
+    }).catch(() => {});
+  }, []);
 
   // Profil
   const [prenom, setPrenom]           = useState(user?.prenom       || '');
@@ -30,10 +46,16 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
   const [resLoading, setResLoading]     = useState(false);
   const [resActionId, setResActionId]   = useState(null);
 
+
+  // Activités par réservation { [resId]: [{ activite_id, nom_fr, nom_en, nb_places }] }
+  const [resActivites, setResActivites]       = useState({});
+  const [cancelActId, setCancelActId]         = useState(null); // { resId, activiteId }
+
   // Réservations hôtels
   const [hotelReservations, setHotelReservations] = useState([]);
   const [hotelResLoading, setHotelResLoading]     = useState(false);
   const [hotelResActionId, setHotelResActionId]   = useState(null);
+
 
   // Notifications
   const [notifs, setNotifs]       = useState([]);
@@ -43,7 +65,20 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     if (tab === 'bookings' && user?.id) {
       setResLoading(true);
       api.get('/reservations', { params: { user_id: user.id } })
-        .then(r => setReservations(r.data))
+        .then(r => {
+          const list = r.data || [];
+          setReservations(list);
+          // Charger les activités de chaque réservation confirmée
+          list.filter(res => res.statut === 'confirmee' || res.statut === 'en_attente').forEach(res => {
+            api.get(`/activites?reservation_id=${res.id}`)
+              .then(detail => {
+                if (Array.isArray(detail.data) && detail.data.length > 0) {
+                  setResActivites(prev => ({ ...prev, [res.id]: detail.data }));
+                }
+              })
+              .catch(() => {});
+          });
+        })
         .catch(() => setReservations([]))
         .finally(() => setResLoading(false));
 
@@ -126,6 +161,35 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
       }).catch(() => {});
     } catch { /* silent */ } finally {
       setHotelResActionId(null);
+    }
+  };
+
+
+  const handleCancelActivite = async (reservation, activite) => {
+    if (!window.confirm(
+      lang === 'fr'
+        ? `Annuler l'activité "${activite.nom_fr}" de cette réservation ?`
+        : `Cancel activity "${activite.nom_en}" from this booking?`
+    )) return;
+    setCancelActId({ resId: reservation.id, activiteId: activite.activite_id });
+    try {
+      await cancelActiviteFromReservation(reservation.id, activite.activite_id);
+      setResActivites(prev => ({
+        ...prev,
+        [reservation.id]: (prev[reservation.id] || []).filter(a => a.activite_id !== activite.activite_id)
+      }));
+      createNotification({
+        utilisateur_id: user.id,
+        type: 'info',
+        titre: lang === 'fr'
+          ? `Activité annulée · ${reservation.reference}`
+          : `Activity cancelled · ${reservation.reference}`,
+        message: lang === 'fr'
+          ? `L'activité "${activite.nom_fr}" a été retirée de votre réservation ${reservation.reference}.`
+          : `Activity "${activite.nom_en}" was removed from booking ${reservation.reference}.`,
+      }).catch(() => {});
+    } catch { /* silent */ } finally {
+      setCancelActId(null);
     }
   };
 
@@ -214,18 +278,26 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
           {reservations.map(r => {
             const destImg  = r.dest_image || destinations.find(d => d.id === (r.slug || ''))?.imageUrl;
             const destName = lang === 'fr' ? (r.ville || r.slug || '') : (r.pays_en || r.ville || r.slug || '');
+            const destSlug = r.slug || '';
+            const destImg  = r.dest_image || null;
+            const destName = lang === 'fr'
+              ? (r.ville ? (r.pays_fr ? `${r.ville}, ${r.pays_fr}` : r.ville) : (r.slug || ''))
+              : (r.ville ? (r.pays_en ? `${r.ville}, ${r.pays_en}` : r.ville) : (r.slug || ''));
             const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
             return (
               <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
-                <Placeholder label={destName.toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
+                <Placeholder label={(r.ville || destSlug).toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
                 <div>
                   <div className="row gap-8 mb-4">
                     <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
                     <span className="mono muted" style={{ fontSize: 11 }}>{T.account.ref} {r.reference}</span>
                   </div>
-                  <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>{destName}</div>
+                  <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>
+                    {r.ville || destSlug}
+                    {(lang === 'fr' ? r.pays_fr : r.pays_en) ? ` · ${lang === 'fr' ? r.pays_fr : r.pays_en}` : ''}
+                  </div>
                   <div className="muted mt-4" style={{ fontSize: 13.5 }}>
-                    {r.date_depart} → {r.date_retour} · {T.account.travelers(r.nb_voyageurs)}
+                    {formatDate(r.date_depart)} → {formatDate(r.date_retour)} · {T.account.travelers(r.nb_voyageurs)}
                   </div>
                   {r.transport_id && (
                     <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
@@ -233,6 +305,31 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                         ✈ {r.transport_depart || ''} → {r.transport_arrivee || ''}
                         {r.compagnie ? ` · ${r.compagnie}` : ''}
                       </span>
+                    </div>
+                  )}
+                  {/* Activités annulables individuellement */}
+                  {canCancel && resActivites[r.id]?.length > 0 && (
+                    <div className="col gap-4 mt-8">
+                      <div className="mono muted" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
+                        {lang === 'fr' ? 'ACTIVITÉS' : 'ACTIVITIES'}
+                      </div>
+                      {resActivites[r.id].map(a => (
+                        <div key={a.activite_id} className="row gap-6" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className="tag" style={{ fontSize: 12 }}>
+                            ◇ {lang === 'fr' ? a.nom_fr : a.nom_en}
+                          </span>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 11, color: 'var(--danger)', padding: '1px 6px' }}
+                            disabled={cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id}
+                            onClick={() => handleCancelActivite(r, a)}
+                          >
+                            {cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id
+                              ? '…'
+                              : (lang === 'fr' ? '✕ retirer' : '✕ remove')}
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -283,9 +380,9 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                         {lang === 'fr' ? `, ${r.pays_fr}` : `, ${r.pays_en}`}
                       </div>
                       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {r.date_arrivee}
+                        {lang === 'fr' ? 'Arrivée' : 'Check-in'}: {formatDate(r.date_arrivee)}
                         {' → '}
-                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {r.date_depart}
+                        {lang === 'fr' ? 'Départ' : 'Check-out'}: {formatDate(r.date_depart)}
                       </div>
                       <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
                         {r.nb_personnes} {lang === 'fr' ? `personne${r.nb_personnes > 1 ? 's' : ''}` : `guest${r.nb_personnes > 1 ? 's' : ''}`}
@@ -298,14 +395,16 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                         {Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
                       </div>
                       {canCancel && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ color: 'var(--danger)' }}
-                          disabled={hotelResActionId === r.id}
-                          onClick={() => handleCancelHotelReservation(r)}
-                        >
-                          {hotelResActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
-                        </button>
+                        <div className="row gap-8">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)' }}
+                            disabled={hotelResActionId === r.id}
+                            onClick={() => handleCancelHotelReservation(r)}
+                          >
+                            {hotelResActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -319,19 +418,51 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
 
       {/* ── Favoris ── */}
       {tab === 'favorites' && (
-        <div className="grid grid-4 fade-up">
-          {destinations.slice(0, 4).map(d => (
-            <button key={d.id} className="dest" onClick={() => navigate('detail', { id: d.id })}>
-              <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
-              <div className="dest-meta">
-                <div>
-                  <div className="dest-name">{d.city}</div>
-                  <div className="dest-country">{lang === 'fr' ? d.country : d.countryEn}</div>
-                </div>
-                <span>♥</span>
+        <div className="fade-up">
+          {favorites.length === 0 ? (
+            <div className="card-tile" style={{ padding: 60, textAlign: 'center', color: 'var(--ink-faint)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>♡</div>
+              <div className="serif" style={{ fontSize: 22, marginBottom: 8 }}>
+                {lang === 'fr' ? 'Aucun favori pour le moment' : 'No favorites yet'}
               </div>
-            </button>
-          ))}
+              <div className="muted" style={{ fontSize: 14, marginBottom: 24 }}>
+                {lang === 'fr'
+                  ? 'Explorez les destinations et cliquez sur ♥ pour les sauvegarder ici.'
+                  : 'Browse destinations and click ♥ to save them here.'}
+              </div>
+              <button className="btn btn-primary" onClick={() => navigate('results')}>
+                {lang === 'fr' ? 'Explorer les destinations' : 'Explore destinations'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-4">
+              {destinations.filter(d => favorites.includes(d.id)).map(d => (
+                <div key={d.id} style={{ position: 'relative' }}>
+                  <button className="dest" onClick={() => navigate('detail', { id: d.slug })}>
+                    <Placeholder label={d.ph} ratio="4/5" cat={d.type} className="dest-img" imageUrl={d.imageUrl} />
+                    <div className="dest-meta">
+                      <div>
+                        <div className="dest-name">{d.city}</div>
+                        <div className="dest-country">{lang === 'fr' ? d.country : d.countryEn}</div>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => toggleFavorite && toggleFavorite(d.id)}
+                    style={{
+                      position: 'absolute', top: 10, right: 10,
+                      background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: '50%',
+                      width: 32, height: 32, cursor: 'pointer', fontSize: 16,
+                      display: 'grid', placeItems: 'center',
+                    }}
+                    title={lang === 'fr' ? 'Retirer des favoris' : 'Remove from favorites'}
+                  >
+                    ♥
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

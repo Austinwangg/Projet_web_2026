@@ -8,6 +8,9 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
   const [name, setName]         = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (mode) {
@@ -36,6 +39,7 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
       onAuth(userData);
     } catch (err) {
       setError(err.response?.data?.error || 'Une erreur est survenue.');
+      setError(err.response?.data?.error || 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -59,25 +63,52 @@ export default function AuthModal({ mode, T, onClose, onAuth }) {
             <div>
               <label className="field-label">{T.auth.name}</label>
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKey} placeholder="Jean Dupont" />
+              <input
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jean Dupont"
+              />
             </div>
           )}
           <div>
             <label className="field-label">{T.auth.email}</label>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKey} placeholder="jean@exemple.com" />
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="jean@exemple.com"
+            />
           </div>
           <div>
             <label className="field-label">{T.auth.password}</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKey} placeholder="••••••••" />
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            />
           </div>
 
           {error && (
-            <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>
+            <div style={{ color: 'var(--danger)', fontSize: 13, padding: '8px 12px', background: 'color-mix(in oklab, var(--danger) 10%, transparent)', borderRadius: 8 }}>
+              {error}
+            </div>
           )}
 
           {!isSignup && <a className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>{T.auth.forgot}</a>}
 
           <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={loading}>
             {loading ? '…' : (isSignup ? T.auth.signup : T.auth.signin)}
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? '…' : isSignup ? T.auth.signup : T.auth.signin}
           </button>
 
           <div className="center muted" style={{ fontSize: 13 }}>

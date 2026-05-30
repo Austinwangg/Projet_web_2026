@@ -1,7 +1,7 @@
 -- migration_transport_extras.sql
 -- Ajout de transports alternatifs pour destinations européennes et proches
 -- À exécuter en MIGRATION (ne pas supprimer la base — juste importer ce fichier)
-
+USE voyagevista;
 INSERT INTO transports (destination_id, type, compagnie, depart, arrivee, duree, horaire, prix, places_dispo) VALUES
 
 -- ═══════════════════════════════════════════════════════════════

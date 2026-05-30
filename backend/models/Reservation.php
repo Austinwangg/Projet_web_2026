@@ -206,6 +206,23 @@ class Reservation {
         return true;
     }
 
+    public static function cancelActivite(int $reservationId, int $activiteId): void {
+        $stmt = getDB()->prepare(
+            'SELECT nb_places FROM reservation_activites WHERE reservation_id = ? AND activite_id = ?'
+        );
+        $stmt->execute([$reservationId, $activiteId]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            throw new \InvalidArgumentException('Activité non trouvée dans cette réservation.');
+        }
+        $nb = (int) $row['nb_places'];
+        $del = getDB()->prepare(
+            'DELETE FROM reservation_activites WHERE reservation_id = ? AND activite_id = ?'
+        );
+        $del->execute([$reservationId, $activiteId]);
+        Activite::incrementPlaces($activiteId, $nb);
+    }
+
     public static function delete(int $id): bool {
         $stmt = getDB()->prepare('DELETE FROM reservations WHERE id = ?');
         return $stmt->execute([$id]);

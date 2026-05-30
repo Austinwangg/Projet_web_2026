@@ -14,12 +14,16 @@ import ScreenAccount from './screens/ScreenAccount.jsx';
 import ScreenAdmin from './screens/ScreenAdmin.jsx';
 import ScreenTransport from './screens/ScreenTransport.jsx';
 import ScreenHebergement from './screens/ScreenHebergement.jsx';
+import ScreenActivites from './screens/ScreenActivites.jsx';
+import ScreenPassengers from './screens/ScreenPassengers.jsx';
+import { getFavoris, toggleFavori } from './services/favorisService.js';
 
 export default function App() {
   const [lang, setLang] = useState('fr');
   const [screen, setScreen] = useState('home');
   const [detailId, setDetailId] = useState('shanghai');
   const [cart, setCart] = useState([]);
+  const [itineraryMode, setItineraryMode] = useState(false);
   const [search, setSearch] = useState({
     where: '',
     dates: { start: new Date(2026, 5, 15), end: new Date(2026, 5, 22) },
@@ -29,10 +33,25 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('vv_user')) || null; } catch { return null; }
   });
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('vv_favorites')) || [];
+      // Purge old slug-based favorites (strings) — keep only numeric IDs
+      const clean = raw.filter(v => typeof v === 'number' || (typeof v === 'string' && /^\d+$/.test(v)));
+      if (clean.length !== raw.length) localStorage.setItem('vv_favorites', JSON.stringify(clean));
+      return clean.map(Number);
+    } catch { return []; }
+  });
   const [authMode, setAuthMode] = useState(null);
   const [toast, setToast] = useState('');
   const [theme, setTheme] = useState('light');
   const [cardStyle] = useState('clean');
+
+  // ── État de l'itinéraire — persisté pendant toute la session ──────────────
+  const [itinItems, setItinItems] = useState([]);
+  const [itinNbVoyageurs, setItinNbVoyageurs] = useState(1);
+  const [itinDates, setItinDates] = useState({ depart: '', retour: '' });
+  const [passengers, setPassengers] = useState([]);
 
   const T = VV_I18N[lang];
 
@@ -40,10 +59,30 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  // Sync favorites from DB when user logs in
+  useEffect(() => {
+    if (!user?.id) return;
+    getFavoris(user.id)
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setFavorites(res.data);
+          localStorage.setItem('vv_favorites', JSON.stringify(res.data));
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   const navigate = (s, args = {}) => {
     if (s === 'detail' && args.id) setDetailId(args.id);
+    if (args.fromItinerary) setItineraryMode(true);
+    if (s === 'itinerary') setItineraryMode(false);
     setScreen(s);
     window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const addToItinerary = (item) => {
+    setItinItems(prev => [...prev, item]);
+    navigate('itinerary');
   };
 
   const addToCart = (items) => {
@@ -58,6 +97,17 @@ export default function App() {
 
   const removeFromCart = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
+  const toggleFavorite = (destId) => {
+    setFavorites(prev => {
+      const next = prev.includes(destId) ? prev.filter(id => id !== destId) : [...prev, destId];
+      localStorage.setItem('vv_favorites', JSON.stringify(next));
+      return next;
+    });
+    if (user?.id) {
+      toggleFavori(user.id, destId).catch(() => {});
+    }
+  };
+
   const onAuth = (userData) => {
     if (!userData || typeof userData !== 'object') return;
     // Reconstruit un nom affichable depuis prenom + nom ou nom seul
@@ -65,6 +115,8 @@ export default function App() {
     const nomFam = userData.nom   || '';
     const displayName = [prenom, nomFam].filter(Boolean).join(' ') || userData.name || '';
     const parts    = displayName.trim().split(' ');
+    const nom = typeof userData === 'string' ? userData : (userData.nom || '');
+    const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
     // On conserve TOUS les champs renvoyés par l'API (id, email, role, nom, prenom…)
     const enriched = {
@@ -107,33 +159,46 @@ export default function App() {
         <ScreenHome T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
       )}
       {screen === 'results' && (
-        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} />
+        <ScreenResults T={T} lang={lang} search={search} setSearch={setSearch} navigate={navigate} cardStyle={cardStyle} itineraryMode={itineraryMode} addToItinerary={addToItinerary} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'detail' && (
-        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} />
+        <ScreenDetail T={T} lang={lang} navigate={navigate} cart={cart} addToCart={addToCart} removeFromCart={removeFromCart} destId={detailId} cardStyle={cardStyle} searchDates={search.dates} searchTravelers={search.travelers} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'itinerary' && (
-        <ScreenItinerary T={T} lang={lang} navigate={navigate} cart={cart} user={user} onToast={setToast} />
+        <ScreenItinerary
+          T={T} lang={lang} navigate={navigate}
+          user={user} onToast={setToast}
+          itinItems={itinItems} setItinItems={setItinItems}
+          itinNbVoyageurs={itinNbVoyageurs} setItinNbVoyageurs={setItinNbVoyageurs}
+          itinDates={itinDates} setItinDates={setItinDates}
+        />
       )}
       {screen === 'cart' && (
         <ScreenCart T={T} lang={lang} cart={cart} removeFromCart={removeFromCart} navigate={navigate} />
       )}
+      {screen === 'passengers' && (
+        <ScreenPassengers T={T} lang={lang} cart={cart} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} navigate={navigate} onPassengersSaved={setPassengers} />
+      )}
       {screen === 'payment' && (
-        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => setCart([])} user={user} search={search} detailId={detailId} />
+        <ScreenPayment T={T} lang={lang} cart={cart} navigate={navigate} onPaid={() => { setCart([]); setItinItems([]); setPassengers([]); }} user={user} search={search} detailId={detailId} itinItems={itinItems} itinNbVoyageurs={itinNbVoyageurs} itinDates={itinDates} passengers={passengers} />
       )}
       {screen === 'account' && (
-        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} />
+        <ScreenAccount T={T} lang={lang} navigate={navigate} user={user} onSignOut={onSignOut} onUpdateUser={onUpdateUser} favorites={favorites} toggleFavorite={toggleFavorite} />
       )}
       {screen === 'transport' && (
-        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} />
+        <ScreenTransport T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} searchDates={search.dates} searchTravelers={search.travelers} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'hebergement' && (
-        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} />
+        <ScreenHebergement T={T} lang={lang} navigate={navigate} user={user} onSignIn={(m) => setAuthMode(m)} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
+      )}
+      {screen === 'activites' && (
+        <ScreenActivites T={T} lang={lang} navigate={navigate} user={user} addToCart={addToCart} itineraryMode={itineraryMode} addToItinerary={addToItinerary} itineraryTravelers={itinNbVoyageurs} itineraryDates={itinDates} />
       )}
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
       )}
 {screen === 'admin' && user?.role !== 'admin' && (
+      {screen === 'admin' && user?.role !== 'admin' && (
         <main className="container" style={{ paddingTop: 80, textAlign: 'center' }}>
           <p className="serif" style={{ fontSize: 32 }}>Accès refusé</p>
           <p className="muted mt-8">Cette section est réservée aux administrateurs.</p>

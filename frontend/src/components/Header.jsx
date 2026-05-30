@@ -4,10 +4,10 @@ import Notifications from './Notifications.jsx';
 export default function Header({ T, lang, setLang, theme, setTheme, screen, navigate, user, onSignIn, onSignOut, cartCount }) {
   const links = [
     { id: 'destinations',  label: T.nav.destinations,  target: 'results' },
-    { id: 'stays',         label: T.nav.stays,         target: 'results' },
     { id: 'hebergement',   label: T.nav.hebergement,   target: 'hebergement' },
-    { id: 'activities',    label: T.nav.activities,    target: 'results' },
+    { id: 'activities',    label: T.nav.activities,    target: 'activites' },
     { id: 'transport',     label: T.nav.transport,     target: 'transport' },
+    { id: 'itinerary',     label: lang === 'fr' ? 'Itinéraire' : 'Itinerary', target: 'itinerary' },
   ];
   return (
     <header className="vv-header">
@@ -22,7 +22,8 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
                  screen === l.target ||
                  (l.id === 'destinations' && (screen === 'results' || screen === 'detail')) ||
                  (l.id === 'transport' && screen === 'transport') ||
-                 (l.id === 'hebergement' && screen === 'hebergement')
+                 (l.id === 'hebergement' && screen === 'hebergement') ||
+                 (l.id === 'activities' && screen === 'activites')
                    ? 'active' : ''
                }
                onClick={() => navigate(l.target)}
@@ -48,7 +49,7 @@ export default function Header({ T, lang, setLang, theme, setTheme, screen, navi
             {theme === 'dark' ? '◐' : '◑'}
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('cart')} style={{ position: 'relative' }}>
-            ⊕ {cartCount > 0 ? `(${cartCount})` : ''}
+            🧳 {cartCount > 0 ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', borderRadius: 99, padding: '1px 6px', marginLeft: 2 }}>{cartCount}</span> : ''}
           </button>
           <Notifications user={user} />
           {user ? (

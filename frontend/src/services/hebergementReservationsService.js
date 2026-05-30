@@ -9,5 +9,8 @@ export const getHebergementReservation = (id) =>
 export const createHebergementReservation = (data) =>
   api.post('/reservations_hebergement', data);
 
+export const updateHebergementReservation = (id, data) =>
+  api.put(`/reservations_hebergement?id=${id}`, data);
+
 export const cancelHebergementReservation = (id) =>
   api.put(`/reservations_hebergement?id=${id}`, { statut: 'annulee' });
