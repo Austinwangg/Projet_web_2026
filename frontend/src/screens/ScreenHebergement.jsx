@@ -215,8 +215,6 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
   const showResults = true;
 
   const nights = calcNights(dateArrivee, dateDepart);
-  const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
-  const todayISO = toLocalISO(new Date());
   // Prix total = nuits × prix/nuit × nombre de personnes
   const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
 
@@ -235,7 +233,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
     setBookingError('');
   };
 
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!dateArrivee || !dateDepart) {
       setBookingError(lang === 'fr' ? "Veuillez renseigner les dates d'arrivée et de départ." : 'Please fill in the check-in and check-out dates.');
       return;
@@ -724,15 +722,6 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                       borderRadius: 8,
                       padding: '14px 16px',
                     }}>
-                      <div className="muted" style={{ fontSize: 13 }}>
-                        {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}
-                        {' × '}
-                        {Number(bookingHotel.prix_nuit).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
-                        {' × '}
-                        {nbPersonnes} {lang === 'fr' ? `personne${nbPersonnes > 1 ? 's' : ''}` : `guest${nbPersonnes > 1 ? 's' : ''}`}
-                      </div>
-                      <div className="serif" style={{ fontSize: 22 }}>
-                        {total.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div className="muted" style={{ fontSize: 13 }}>
                           {nights} {lang === 'fr' ? `nuit${nights > 1 ? 's' : ''}` : `night${nights > 1 ? 's' : ''}`}

@@ -115,8 +115,6 @@ export default function App() {
     const nomFam = userData.nom   || '';
     const displayName = [prenom, nomFam].filter(Boolean).join(' ') || userData.name || '';
     const parts    = displayName.trim().split(' ');
-    const nom = typeof userData === 'string' ? userData : (userData.nom || '');
-    const parts = nom.trim().split(' ');
     const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
     // On conserve TOUS les champs renvoyés par l'API (id, email, role, nom, prenom…)
     const enriched = {
@@ -197,7 +195,6 @@ export default function App() {
       {screen === 'admin' && user?.role === 'admin' && (
         <ScreenAdmin T={T} lang={lang} navigate={navigate} user={user} />
       )}
-{screen === 'admin' && user?.role !== 'admin' && (
       {screen === 'admin' && user?.role !== 'admin' && (
         <main className="container" style={{ paddingTop: 80, textAlign: 'center' }}>
           <p className="serif" style={{ fontSize: 32 }}>Accès refusé</p>

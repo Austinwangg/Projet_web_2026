@@ -274,10 +274,8 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             {!resLoading && reservations.length === 0 && (
               <p className="muted">{T.account.noBookings}</p>
             )}
-          <div className="col gap-16">
-          {reservations.map(r => {
-            const destImg  = r.dest_image || destinations.find(d => d.id === (r.slug || ''))?.imageUrl;
-            const destName = lang === 'fr' ? (r.ville || r.slug || '') : (r.pays_en || r.ville || r.slug || '');
+            <div className="col gap-16">
+            {reservations.map(r => {
             const destSlug = r.slug || '';
             const destImg  = r.dest_image || null;
             const destName = lang === 'fr'
@@ -350,9 +348,9 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                 </div>
               </div>
             );
-          })}
+            })}
+            </div>
           </div>
-        </div>
 
           {/* Hôtels */}
           <div>
