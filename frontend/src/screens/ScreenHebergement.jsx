@@ -286,6 +286,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
       addToCart([{
         id: `hotel-${bookingHotel.id}-${dateArrivee}`,
         kind: 'hotel',
+        alreadyReserved: true,
         hebergementDbId: bookingHotel.id,
         destSlug: bookingHotel.dest_slug || '',
         title: bookingHotel.nom,

@@ -102,7 +102,9 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         const flightItem = cart.find(i => i.kind === 'flight');
         const actItems   = cart.filter(i => i.kind === 'activity');
 
-        const hebergementId = hotelItem?.hebergementDbId || null;
+        // Si l'hôtel a déjà été réservé directement (ScreenHebergement), ne pas repasser
+        // hebergement_id à createReservation pour éviter un 2ème décrement des places.
+        const hebergementId = (hotelItem && !hotelItem.alreadyReserved) ? hotelItem.hebergementDbId : null;
         const transportId   = flightItem?.transportDbId  || null;
 
         // Slug principal : transport > hôtel > première activité > detailId
