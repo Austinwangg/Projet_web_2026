@@ -53,81 +53,125 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         return `${y}-${m}-${day}`;
       };
 
-      // Resolve destination slug — cherche dans tous les items, prend le premier slug non vide
-      const destSlug = fromItinerary
-        ? (itinItems.find(i => i.destSlug)?.destSlug || detailId || '')
-        : (cart.find(i => i.destSlug)?.destSlug || detailId || '');
+      // Helper : résout destination_id depuis un slug
+      const resolveDestId = async (slug) => {
+        if (!slug) return null;
+        const r = await api.get(`/destinations?slug=${encodeURIComponent(slug)}`);
+        return r.data?.id || null;
+      };
 
-      // Get destination_id from backend
-      // Si aucun destSlug n'est résolu (itinéraire sans destination), on essaie
-      // de déduire depuis le transport ou l'hébergement via leur destination_id
-      let destinationId = null;
-      if (destSlug) {
-        const destRes = await api.get(`/destinations?slug=${destSlug}`);
-        destinationId = destRes.data?.id || null;
-      }
-      if (!destinationId) {
-        // Fallback : cherche la destination via le transport sélectionné
-        let fallbackTransportId = fromItinerary
-          ? itinItems.find(i => i.type === 'transport')?.ref_id
-          : cart.find(i => i.kind === 'flight')?.transportDbId;
-        if (fallbackTransportId) {
-          const tRes = await api.get(`/transports?id=${fallbackTransportId}`);
-          destinationId = tRes.data?.destination_id || null;
-        }
-      }
-      if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable. Vérifiez que votre itinéraire contient une destination valide.' : 'Destination not found. Make sure your itinerary contains a valid destination.');
+      const travelers = nbVoyageurs;
+      let ref = 'VV-XXXXXXX';
 
-      // Extract IDs selon la source
-      let hebergementId = null, transportId = null, activiteIds = [];
       if (fromItinerary) {
+        // ── Chemin itinéraire (inchangé) ──────────────────────────────────────
+        const destSlug = itinItems.find(i => i.destSlug)?.destSlug || detailId || '';
+        let destinationId = await resolveDestId(destSlug);
+        if (!destinationId) {
+          const fallbackId = itinItems.find(i => i.type === 'transport')?.ref_id;
+          if (fallbackId) {
+            const tRes = await api.get(`/transports?id=${fallbackId}`);
+            destinationId = tRes.data?.destination_id || null;
+          }
+        }
+        if (!destinationId) throw new Error(lang === 'fr' ? 'Destination introuvable. Vérifiez que votre itinéraire contient une destination valide.' : 'Destination not found. Make sure your itinerary contains a valid destination.');
+
         const itinTransport = itinItems.find(i => i.type === 'transport');
         const itinHeberg    = itinItems.find(i => i.type === 'hebergement');
         const itinActs      = itinItems.filter(i => i.type === 'activite');
-        transportId    = itinTransport?.ref_id || null;
-        hebergementId  = itinHeberg?.ref_id    || null;
-        activiteIds    = itinActs.map(i => i.ref_id).filter(Boolean);
+        const dateDepart = itinDates?.depart || fmtLocal(new Date(Date.now() + 7  * 86400000));
+        const dateRetour = itinDates?.retour || fmtLocal(new Date(Date.now() + 14 * 86400000));
+
+        const res = await createReservation({
+          utilisateur_id: user.id,
+          destination_id: destinationId,
+          hebergement_id: itinHeberg?.ref_id  || null,
+          transport_id:   itinTransport?.ref_id || null,
+          activite_ids:   itinActs.map(i => i.ref_id).filter(Boolean),
+          date_depart:    dateDepart,
+          date_retour:    dateRetour,
+          nb_voyageurs:   travelers || 1,
+          montant_total:  total,
+          statut:         'confirmee',
+        });
+        ref = res.data?.reference || ref;
+
       } else {
+        // ── Chemin panier ─────────────────────────────────────────────────────
         const hotelItem  = cart.find(i => i.kind === 'hotel');
         const flightItem = cart.find(i => i.kind === 'flight');
         const actItems   = cart.filter(i => i.kind === 'activity');
-        hebergementId    = hotelItem?.hebergementDbId  || null;
-        transportId      = flightItem?.transportDbId   || null;
-        activiteIds      = actItems.map(i => i.activiteDbId).filter(Boolean);
-      }
 
-      // Build dates
-      let dateDepart, dateRetour;
-      if (fromItinerary) {
-        dateDepart = itinDates?.depart || fmtLocal(new Date(Date.now() + 7  * 86400000));
-        dateRetour = itinDates?.retour || fmtLocal(new Date(Date.now() + 14 * 86400000));
-      } else {
+        const hebergementId = hotelItem?.hebergementDbId || null;
+        const transportId   = flightItem?.transportDbId  || null;
+
+        // Slug principal : transport > hôtel > première activité > detailId
+        const primarySlug = flightItem?.destSlug || hotelItem?.destSlug
+          || actItems.find(i => i.destSlug)?.destSlug || detailId || '';
+
+        let primaryDestId = await resolveDestId(primarySlug);
+        if (!primaryDestId && transportId) {
+          const tRes = await api.get(`/transports?id=${transportId}`);
+          primaryDestId = tRes.data?.destination_id || null;
+        }
+        if (!primaryDestId) throw new Error(lang === 'fr' ? 'Destination introuvable. Vérifiez que votre sélection contient une destination valide.' : 'Destination not found. Make sure your selection contains a valid destination.');
+
+        // Dates
         const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
         const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
-        dateDepart = transportDates?.dateDepart
+        const dateDepart = transportDates?.dateDepart
           ?? hotelDates?.dateDepart
           ?? (search?.dates?.start ? fmtLocal(search.dates.start) : fmtLocal(new Date(Date.now() + 7  * 86400000)));
-        dateRetour = transportDates?.dateRetour
+        const dateRetour = transportDates?.dateRetour
           ?? hotelDates?.dateRetour
           ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
+
+        // Regrouper les activités par destination
+        const actBySlug = {};
+        for (const act of actItems) {
+          const slug = act.destSlug || primarySlug;
+          if (!actBySlug[slug]) actBySlug[slug] = [];
+          actBySlug[slug].push(act);
+        }
+
+        // Réservation principale (transport + hôtel + activités de la destination principale)
+        const primaryActIds = (actBySlug[primarySlug] || []).map(i => i.activiteDbId).filter(Boolean);
+        const mainRes = await createReservation({
+          utilisateur_id: user.id,
+          destination_id: primaryDestId,
+          hebergement_id: hebergementId,
+          transport_id:   transportId,
+          activite_ids:   primaryActIds,
+          date_depart:    dateDepart,
+          date_retour:    dateRetour,
+          nb_voyageurs:   travelers || 1,
+          montant_total:  total,
+          statut:         'confirmee',
+        });
+        ref = mainRes.data?.reference || ref;
+
+        // Réservations secondaires : une par autre destination ayant des activités
+        for (const [slug, acts] of Object.entries(actBySlug)) {
+          if (slug === primarySlug) continue;
+          const destId2 = await resolveDestId(slug);
+          if (!destId2) continue;
+          const actIds2    = acts.map(i => i.activiteDbId).filter(Boolean);
+          const subtotal2  = acts.reduce((s, i) => s + Number(i.price ?? i.prix ?? 0), 0);
+          await createReservation({
+            utilisateur_id: user.id,
+            destination_id: destId2,
+            hebergement_id: null,
+            transport_id:   null,
+            activite_ids:   actIds2,
+            date_depart:    dateDepart,
+            date_retour:    dateRetour,
+            nb_voyageurs:   travelers || 1,
+            montant_total:  Math.round(subtotal2 * 1.06),
+            statut:         'confirmee',
+          });
+        }
       }
 
-      const travelers = nbVoyageurs;
-
-      const res = await createReservation({
-        utilisateur_id: user.id,
-        destination_id: destinationId,
-        hebergement_id: hebergementId,
-        transport_id:   transportId,
-        activite_ids:   activiteIds,
-        date_depart:    dateDepart,
-        date_retour:    dateRetour,
-        nb_voyageurs:   travelers || 1,
-        montant_total:  total,
-        statut:         'confirmee',
-      });
-
-      const ref = res.data?.reference || 'VV-XXXXXXX';
       setReference(ref);
 
       // Notify user (non-blocking)
