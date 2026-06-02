@@ -4,6 +4,7 @@ import Placeholder from '../components/Placeholder.jsx';
 import { createHebergementReservation } from '../services/hebergementReservationsService.js';
 import { createNotification } from '../services/notificationService.js';
 
+// Formate une Date JS en "YYYY-MM-DD" sans décalage de fuseau horaire
 function toLocalISO(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -11,6 +12,7 @@ function toLocalISO(d) {
   return `${y}-${m}-${day}`;
 }
 
+// Retourne le nombre de nuits entre deux dates ISO, 0 si invalide
 function calcNights(dateArrivee, dateDepart) {
   if (!dateArrivee || !dateDepart) return 0;
   const d1 = new Date(dateArrivee);
@@ -19,6 +21,7 @@ function calcNights(dateArrivee, dateDepart) {
   return diff > 0 ? diff : 0;
 }
 
+// Affiche n étoiles pleines + (5-n) étoiles vides
 function StarsDisplay({ n }) {
   return (
     <span style={{ color: '#f59e0b', letterSpacing: 1 }}>
@@ -27,19 +30,24 @@ function StarsDisplay({ n }) {
   );
 }
 
+// Génère un nombre d'avis pseudo-aléatoire mais stable par hôtel (pas de vrai avis en base)
 function fakeAvis(hotel) {
   return 48 + ((hotel.id * 23 + (hotel.nb_etoiles || 4) * 17) % 180);
 }
 
 // ── Calendrier inline pour sélection date d'arrivée / départ ────────────────
+// Gère deux phases : d'abord on sélectionne l'arrivée, puis le départ.
+// minDate empêche de choisir une date passée.
 function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, lang }) {
   const minDay = minDate ? new Date(minDate + 'T00:00:00') : new Date();
   minDay.setHours(0, 0, 0, 0);
 
+  // phase : 'arrivee' ou 'depart' — détermine quelle date le prochain clic va remplir
   const [phase, setPhase] = useState('arrivee');
   const [viewYear, setViewYear] = useState(minDay.getFullYear());
   const [viewMonth, setViewMonth] = useState(minDay.getMonth());
 
+  // Remet la phase à 'arrivee' si les deux dates sont effacées, ou passe à 'depart' si l'arrivée seule est remplie
   useEffect(() => {
     if (!dateArrivee && !dateDepart) setPhase('arrivee');
     else if (dateArrivee && !dateDepart) setPhase('depart');
@@ -52,6 +60,7 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
     ? ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa']
     : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
+  // Navigation entre les mois avec gestion du changement d'année
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
     else setViewMonth(m => m - 1);
@@ -61,32 +70,36 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
     else setViewMonth(m => m + 1);
   };
 
+  // Gère le clic sur un jour : remplit l'arrivée puis le départ dans l'ordre
   const handleDay = (day) => {
     const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const clicked = new Date(iso + 'T00:00:00');
-    if (clicked < minDay) return;
+    if (clicked < minDay) return; // ignore les dates passées
 
     if (phase === 'arrivee') {
       onArrivee(iso);
-      onDepart('');
+      onDepart(''); // réinitialise le départ si on rechange l'arrivée
       setPhase('depart');
     } else {
       const arr = dateArrivee ? new Date(dateArrivee + 'T00:00:00') : null;
       if (!arr || clicked <= arr) {
+        // Si le clic est avant ou sur l'arrivée, on recommence la sélection depuis l'arrivée
         onArrivee(iso);
         onDepart('');
       } else {
         onDepart(iso);
-        setPhase('arrivee');
+        setPhase('arrivee'); // sélection terminée, repart sur arrivée pour la prochaine fois
       }
     }
   };
 
+  // Calcul du nombre de jours dans le mois et du jour de semaine du 1er jour (pour l'alignement)
   const daysCount = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const startDow = new Date(viewYear, viewMonth, 1).getDay();
+  const startDow  = new Date(viewYear, viewMonth, 1).getDay();
   const arr = dateArrivee ? new Date(dateArrivee + 'T00:00:00') : null;
-  const dep = dateDepart ? new Date(dateDepart + 'T00:00:00') : null;
+  const dep = dateDepart  ? new Date(dateDepart  + 'T00:00:00') : null;
 
+  // Tableau de cellules : null pour les cases vides de début, puis les numéros de jours
   const cells = [];
   for (let i = 0; i < startDow; i++) cells.push(null);
   for (let d = 1; d <= daysCount; d++) cells.push(d);
@@ -172,27 +185,31 @@ function MiniCalendar({ dateArrivee, dateDepart, onArrivee, onDepart, minDate, l
 }
 
 export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, addToCart, itineraryMode, addToItinerary, itineraryTravelers, itineraryDates }) {
+  // Liste complète des hôtels chargés depuis l'API (avec infos destination jointes)
   const [allHotels, setAllHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedPays, setSelectedPays] = useState('');
 
-  const [bookingHotel, setBookingHotel] = useState(null);
+  // État de la modale de réservation directe
+  const [bookingHotel, setBookingHotel] = useState(null); // hôtel sélectionné, null = modale fermée
   const [dateArrivee, setDateArrivee] = useState('');
   const [dateDepart, setDateDepart] = useState('');
   const [nbPersonnes, setNbPersonnes] = useState(() => itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
 
-  // Modal itinéraire (sélection dates + nb personnes avant d'ajouter)
+  // État de la modale d'ajout à l'itinéraire (mode itinéraire uniquement)
   const [itinModal, setItinModal] = useState(null);
   const [itinDateArrivee, setItinDateArrivee] = useState('');
   const [itinDateDepart, setItinDateDepart] = useState('');
   const [itinNbPersonnes, setItinNbPersonnes] = useState(1);
+
   const [bookingError, setBookingError] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [bookingSuccess, setBookingSuccess] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(null); // référence VVH-XXXXX après succès
 
   const todayISO = toLocalISO(new Date());
 
+  // Chargement initial de tous les hébergements (avec ville/pays/slug joints)
   useEffect(() => {
     setLoading(true);
     api.get('/hebergements?with_dest=1')
@@ -201,10 +218,12 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
       .finally(() => setLoading(false));
   }, []);
 
+  // Liste dédupliquée et triée des pays pour les chips de filtre
   const countries = [...new Set(
     allHotels.map(h => lang === 'fr' ? h.pays_fr : h.pays_en).filter(Boolean)
   )].sort();
 
+  // Filtrage en temps réel par pays sélectionné et/ou texte de recherche
   const searchLower = searchText.toLowerCase().trim();
   const displayedHotels = allHotels.filter(h => {
     const pays = (lang === 'fr' ? h.pays_fr : h.pays_en) || '';
@@ -218,10 +237,11 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
 
   const showResults = true;
 
+  // Prix de la modale : nuits × prix/nuit × personnes
   const nights = calcNights(dateArrivee, dateDepart);
-  // Prix total = nuits × prix/nuit × nombre de personnes
   const total = bookingHotel ? nights * Number(bookingHotel.prix_nuit) * nbPersonnes : 0;
 
+  // Ouvre la modale de réservation — redirige vers la connexion si non connecté
   const openBooking = (hotel) => {
     if (!user) { onSignIn('signin'); return; }
     setBookingHotel(hotel);
@@ -237,6 +257,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
     setBookingError('');
   };
 
+  // Valide le formulaire, crée la réservation en base, puis ajoute l'hôtel au panier.
   const handleBook = async () => {
     if (!dateArrivee || !dateDepart) {
       setBookingError(lang === 'fr' ? "Veuillez renseigner les dates d'arrivée et de départ." : 'Please fill in the check-in and check-out dates.');
@@ -246,6 +267,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
       setBookingError(lang === 'fr' ? "La date de départ doit être après la date d'arrivée." : 'Check-out must be after check-in.');
       return;
     }
+    // Vérification côté client avant l'appel API (double-check fait aussi côté serveur)
     const dispo = bookingHotel.nb_chambres_dispo ?? 0;
     if (nbPersonnes > dispo) {
       const msg = lang === 'fr'
@@ -257,6 +279,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
     setBookingLoading(true);
     setBookingError('');
     try {
+      // Crée l'entrée dans reservations_hebergement et décrémente nb_chambres_dispo en base
       const res = await createHebergementReservation({
         utilisateur_id: user.id,
         hebergement_id: bookingHotel.id,
@@ -266,6 +289,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
         montant_total: total,
       });
 
+      // Notification non bloquante
       createNotification({
         utilisateur_id: user.id,
         type: 'booking',
@@ -278,11 +302,16 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
       }).catch(() => {});
 
       setBookingSuccess(res.data.reference);
+
+      // Mise à jour locale immédiate du compteur de places — évite d'avoir à recharger la liste
       setAllHotels(prev => prev.map(h =>
         h.id === bookingHotel.id
           ? { ...h, nb_chambres_dispo: Math.max(0, (h.nb_chambres_dispo || 0) - nbPersonnes) }
           : h
       ));
+
+      // Ajout au panier avec alreadyReserved: true — signal pour ScreenPayment de ne pas
+      // repasser hebergement_id à createReservation (évite un 2ème décrement des places).
       addToCart([{
         id: `hotel-${bookingHotel.id}-${dateArrivee}`,
         kind: 'hotel',
@@ -441,9 +470,10 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
         </div>
       )}
 
-      {/* Results */}
+      {/* Grille des résultats */}
       {!loading && showResults && (
         <>
+          {/* Compteur de résultats avec filtre pays actif */}
           <div className="mono muted mb-24" style={{ fontSize: 11, letterSpacing: '0.1em' }}>
             {displayedHotels.length}{' '}
             {lang === 'fr' ? `hébergement${displayedHotels.length !== 1 ? 's' : ''}` : `hotel${displayedHotels.length !== 1 ? 's' : ''}`}
@@ -457,12 +487,13 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
           ) : (
             <div className="grid grid-3" style={{ gap: 24 }}>
               {displayedHotels.map(hotel => {
-                const dispo = hotel.nb_chambres_dispo ?? 0;
-                const complet = dispo === 0;
-                const avis = fakeAvis(hotel);
-                const note = Number(hotel.note || 4.5);
+                const dispo   = hotel.nb_chambres_dispo ?? 0;
+                const complet = dispo === 0; // plus aucune chambre disponible
+                const avis    = fakeAvis(hotel); // nombre d'avis généré de façon stable
+                const note    = Number(hotel.note || 4.5);
                 return (
                   <div key={hotel.id} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    {/* Image ou placeholder de l'hôtel */}
                     <Placeholder
                       label={hotel.nom.toUpperCase()}
                       ratio="16/9"
@@ -471,6 +502,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                       style={{ borderRadius: '12px 12px 0 0', flexShrink: 0 }}
                     />
                     <div style={{ padding: '20px 20px 18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      {/* Type d'hébergement + catégorie étoiles */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <span className="tag" style={{ fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                           {hotel.hotel_type || hotel.type}
@@ -490,6 +522,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                         </span>
                       </div>
 
+                      {/* Nom, localisation et avantage mis en avant */}
                       <div className="serif" style={{ fontSize: 21, lineHeight: 1.2, marginBottom: 4 }}>{hotel.nom}</div>
                       <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>
                         {hotel.quartier ? `${hotel.quartier} · ` : ''}{hotel.ville}
@@ -500,6 +533,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                           ✓ {lang === 'fr' ? hotel.avantage_fr : hotel.avantage_en}
                         </div>
                       )}
+                      {/* Prix et disponibilité + bouton d'action */}
                       <div style={{ marginTop: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 12 }}>
                           <div>
@@ -510,10 +544,12 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                               {' '}/ {lang === 'fr' ? 'nuit/pers.' : 'night/guest'}
                             </span>
                           </div>
+                          {/* Couleur du label : vert > 5 places, orange ≤ 5, rouge = complet */}
                           <div style={{ fontSize: 12, fontWeight: 500, color: availColor(dispo) }}>
                             {availLabel(dispo)}
                           </div>
                         </div>
+                        {/* En mode itinéraire : ouvre la modale d'ajout à l'itinéraire */}
                         {itineraryMode ? (
                           <button
                             className="btn btn-primary btn-sm"
@@ -522,6 +558,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                             onClick={() => {
                               if (complet) return;
                               setItinModal(hotel);
+                              // Pré-remplit les dates depuis l'itinéraire en cours
                               setItinDateArrivee(itineraryDates?.depart || '');
                               setItinDateDepart(itineraryDates?.retour || '');
                               setItinNbPersonnes(itineraryTravelers && itineraryTravelers > 0 ? itineraryTravelers : 1);
@@ -532,6 +569,7 @@ export default function ScreenHebergement({ T, lang, navigate, user, onSignIn, a
                               : (lang === 'fr' ? '+ Ajouter à l\'itinéraire' : '+ Add to itinerary')}
                           </button>
                         ) : (
+                          /* En mode normal : ouvre la modale de réservation directe */
                           <button
                             className={complet ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm'}
                             style={{ width: '100%' }}

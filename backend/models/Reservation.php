@@ -6,6 +6,7 @@ require_once __DIR__ . '/Transport.php';
 
 class Reservation {
 
+    // Retourne toutes les réservations avec destination et transport joints
     public static function getAll(): array {
         $stmt = getDB()->query(
             'SELECT r.*, d.slug, d.ville, d.pays_fr, d.pays_en, d.image_url AS dest_image,
@@ -18,6 +19,7 @@ class Reservation {
         return $stmt->fetchAll();
     }
 
+    // Retourne toutes les réservations d'un utilisateur, les plus récentes en premier
     public static function getByUser(int $userId): array {
         $stmt = getDB()->prepare(
             'SELECT r.*, d.slug, d.ville, d.pays_fr, d.pays_en, d.image_url AS dest_image,
@@ -32,6 +34,7 @@ class Reservation {
         return $stmt->fetchAll();
     }
 
+    // Retourne une réservation par son id, ou false si inexistante
     public static function getById(int $id): array|false {
         $stmt = getDB()->prepare(
             'SELECT r.*, d.slug, d.ville, d.pays_fr, d.pays_en, d.image_url AS dest_image,
@@ -45,10 +48,7 @@ class Reservation {
         return $stmt->fetch();
     }
 
-    /**
-     * Valide les dates d'une réservation.
-     * Retourne un message d'erreur ou null si valide.
-     */
+    // Valide que les dates sont cohérentes (non passées, retour après départ, max 365 jours)
     public static function validateDates(string $dateDepart, string $dateRetour): ?string {
         $today  = new \DateTime('today');
         $depart = \DateTime::createFromFormat('Y-m-d', $dateDepart);
@@ -67,11 +67,13 @@ class Reservation {
         if ($diff > 365) {
             return 'La durée du séjour ne peut pas dépasser 365 jours.';
         }
-        return null;
+        return null; // null = pas d'erreur
     }
 
+    // Crée une réservation voyage complète (destination + transport + hébergement + activités)
+    // Décrémente les stocks transport et hébergement, puis enregistre les activités.
     public static function create(array $data): int {
-        // Validation des dates
+        // Validation des dates avant tout
         $errDates = self::validateDates($data['date_depart'] ?? '', $data['date_retour'] ?? '');
         if ($errDates) {
             throw new \InvalidArgumentException($errDates);
@@ -81,6 +83,7 @@ class Reservation {
         $transportId   = !empty($data['transport_id'])   ? (int) $data['transport_id']   : null;
         $nbVoyageurs   = (int) ($data['nb_voyageurs'] ?? 1);
 
+        // Vérifie la disponibilité de l'hébergement et du transport avant insertion
         if ($hebergementId && !Hebergement::isAvailable($hebergementId, $nbVoyageurs)) {
             throw new \RuntimeException('Hébergement complet — aucune chambre disponible.');
         }
@@ -88,6 +91,7 @@ class Reservation {
             throw new \RuntimeException('Transport complet — plus assez de places disponibles.');
         }
 
+        // Génère une référence unique au format VV-XXXXXXX
         $ref = 'VV-' . strtoupper(substr(uniqid(), -7));
         $stmt = getDB()->prepare(
             'INSERT INTO reservations
@@ -109,20 +113,21 @@ class Reservation {
         ]);
         $newId = (int) getDB()->lastInsertId();
 
+        // Décrémente les stocks selon ce qui a été réservé
         if ($hebergementId) {
             Hebergement::decrementDispo($hebergementId, $nbVoyageurs);
         }
         if ($transportId) {
             Transport::decrementPlaces($transportId, $nbVoyageurs);
-            // Enregistre dans l'historique
             self::logTransport($newId, $transportId, $nbVoyageurs, $data['date_depart']);
         }
 
         return $newId;
     }
 
+    // Enregistre le transport utilisé dans la table d'historique (peut échouer silencieusement
+    // si la table n'existe pas encore sur les anciennes bases de données)
     private static function logTransport(int $resId, int $transId, int $nb, string $date): void {
-        // La table peut ne pas encore exister sur les anciennes BDD
         try {
             $stmt = getDB()->prepare(
                 'INSERT IGNORE INTO reservation_transports (reservation_id, transport_id, nb_places, date_trajet)
@@ -132,18 +137,20 @@ class Reservation {
         } catch (\Throwable $e) { /* silently skip if table doesn't exist */ }
     }
 
+    // Associe des activités à une réservation existante et décrémente les places de chaque activité
     public static function addActivites(int $reservationId, array $activiteIds, int $nbVoyageurs = 1): void {
         $stmt = getDB()->prepare(
             'INSERT INTO reservation_activites (reservation_id, activite_id, nb_places) VALUES (?,?,?)'
         );
         foreach ($activiteIds as $activiteId) {
             $activiteId = (int) $activiteId;
-            if (!Activite::isAvailable($activiteId)) continue;
+            if (!Activite::isAvailable($activiteId)) continue; // ignore si complet
             $stmt->execute([$reservationId, $activiteId, $nbVoyageurs]);
             Activite::decrementPlaces($activiteId, $nbVoyageurs);
         }
     }
 
+    // Retourne les activités liées à une réservation (avec nom et prix)
     public static function getActivites(int $reservationId): array {
         $stmt = getDB()->prepare(
             'SELECT ra.*, a.nom_fr, a.nom_en, a.prix
@@ -155,8 +162,9 @@ class Reservation {
         return $stmt->fetchAll();
     }
 
+    // Met à jour les champs modifiables d'une réservation (statut, dates, voyageurs, montant, transport)
     public static function update(int $id, array $data): bool {
-        // Validation des dates si modifiées
+        // Revalide les dates si elles sont modifiées
         if (isset($data['date_depart']) && isset($data['date_retour'])) {
             $errDates = self::validateDates($data['date_depart'], $data['date_retour']);
             if ($errDates) {
@@ -167,6 +175,7 @@ class Reservation {
         $fields = [];
         $params = [];
 
+        // Construit dynamiquement la clause SET selon les champs fournis
         if (isset($data['statut']))        { $fields[] = 'statut = ?';        $params[] = $data['statut']; }
         if (isset($data['date_depart']))   { $fields[] = 'date_depart = ?';   $params[] = $data['date_depart']; }
         if (isset($data['date_retour']))   { $fields[] = 'date_retour = ?';   $params[] = $data['date_retour']; }
@@ -177,13 +186,14 @@ class Reservation {
             $params[] = $data['transport_id'] ? (int) $data['transport_id'] : null;
         }
 
-        if (empty($fields)) return false;
+        if (empty($fields)) return false; // rien à mettre à jour
 
         $params[] = $id;
         $stmt = getDB()->prepare('UPDATE reservations SET ' . implode(', ', $fields) . ' WHERE id = ?');
         return $stmt->execute($params);
     }
 
+    // Annule une réservation et restitue toutes les places (hébergement, transport, activités)
     public static function cancel(int $id): bool {
         $res = self::getById($id);
         if (!$res || $res['statut'] === 'annulee') return false;
@@ -191,6 +201,7 @@ class Reservation {
         $stmt = getDB()->prepare("UPDATE reservations SET statut = 'annulee' WHERE id = ?");
         $stmt->execute([$id]);
 
+        // Restitue les places hébergement et transport
         if (!empty($res['hebergement_id'])) {
             Hebergement::incrementDispo((int) $res['hebergement_id'], (int) $res['nb_voyageurs']);
         }
@@ -198,6 +209,7 @@ class Reservation {
             Transport::incrementPlaces((int) $res['transport_id'], (int) $res['nb_voyageurs']);
         }
 
+        // Restitue les places de chaque activité liée
         $activites = self::getActivites($id);
         foreach ($activites as $a) {
             Activite::incrementPlaces((int) $a['activite_id'], (int) $a['nb_places']);
@@ -206,6 +218,7 @@ class Reservation {
         return true;
     }
 
+    // Retire une activité spécifique d'une réservation et restitue ses places
     public static function cancelActivite(int $reservationId, int $activiteId): void {
         $stmt = getDB()->prepare(
             'SELECT nb_places FROM reservation_activites WHERE reservation_id = ? AND activite_id = ?'
@@ -216,13 +229,17 @@ class Reservation {
             throw new \InvalidArgumentException('Activité non trouvée dans cette réservation.');
         }
         $nb = (int) $row['nb_places'];
+
         $del = getDB()->prepare(
             'DELETE FROM reservation_activites WHERE reservation_id = ? AND activite_id = ?'
         );
         $del->execute([$reservationId, $activiteId]);
+
+        // Restitue les places de l'activité
         Activite::incrementPlaces($activiteId, $nb);
     }
 
+    // Supprime définitivement une réservation (admin uniquement)
     public static function delete(int $id): bool {
         $stmt = getDB()->prepare('DELETE FROM reservations WHERE id = ?');
         return $stmt->execute([$id]);

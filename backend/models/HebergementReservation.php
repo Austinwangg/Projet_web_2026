@@ -4,6 +4,7 @@ require_once __DIR__ . '/Hebergement.php';
 
 class HebergementReservation {
 
+    // Retourne toutes les réservations hôtel d'un utilisateur avec les détails hôtel et destination
     public static function getByUser(int $userId): array {
         $stmt = getDB()->prepare(
             'SELECT rh.*, h.nom AS hotel_nom, h.type AS hotel_type, h.nb_etoiles,
@@ -19,6 +20,7 @@ class HebergementReservation {
         return $stmt->fetchAll();
     }
 
+    // Retourne une réservation hôtel par son id avec les détails hôtel et destination
     public static function getById(int $id): array|false {
         $stmt = getDB()->prepare(
             'SELECT rh.*, h.nom AS hotel_nom, h.type AS hotel_type, h.nb_etoiles,
@@ -33,7 +35,9 @@ class HebergementReservation {
         return $stmt->fetch();
     }
 
+    // Crée une réservation hôtel, décrémente les chambres disponibles et retourne le nouvel id
     public static function create(array $data): int {
+        // Validation des dates
         $today   = new \DateTime('today');
         $arrivee = \DateTime::createFromFormat('Y-m-d', $data['date_arrivee'] ?? '');
         $depart  = \DateTime::createFromFormat('Y-m-d', $data['date_depart']  ?? '');
@@ -56,6 +60,7 @@ class HebergementReservation {
         $nbPersonnes = max(1, (int) ($data['nb_personnes'] ?? 1));
         $nbNuits     = $arrivee->diff($depart)->days;
 
+        // Vérifie la disponibilité avant de continuer
         if (!Hebergement::isAvailable($hebergementId, $nbPersonnes)) {
             $h = Hebergement::getById($hebergementId);
             $dispo = (int) ($h['nb_chambres_dispo'] ?? 0);
@@ -67,11 +72,13 @@ class HebergementReservation {
             );
         }
 
+        // Calcul du montant : utilise la valeur fournie si valide, sinon recalcule depuis le prix/nuit
         $hotel   = Hebergement::getById($hebergementId);
         $montant = isset($data['montant_total']) && $data['montant_total'] > 0
             ? (float) $data['montant_total']
             : $nbNuits * (float) ($hotel['prix_nuit'] ?? 0) * $nbPersonnes;
 
+        // Génération de la référence unique (préfixe VVH pour distinguer des réservations voyage)
         $ref = 'VVH-' . strtoupper(substr(uniqid(), -6));
 
         $stmt = getDB()->prepare(
@@ -93,11 +100,13 @@ class HebergementReservation {
         ]);
         $newId = (int) getDB()->lastInsertId();
 
+        // Décrémente le stock de chambres disponibles en base
         Hebergement::decrementDispo($hebergementId, $nbPersonnes);
 
         return $newId;
     }
 
+    // Met à jour les dates et/ou le nombre de personnes d'une réservation existante
     public static function update(int $id, array $data): bool {
         $res = self::getById($id);
         if (!$res || $res['statut'] === 'annulee') return false;
@@ -113,6 +122,7 @@ class HebergementReservation {
         $hotel       = Hebergement::getById((int) $res['hebergement_id']);
         $montant     = $nbNuits * (float) ($hotel['prix_nuit'] ?? 0) * $nbPersonnes;
 
+        // Ajuste le stock : décrémente si plus de personnes, réincrémente si moins
         $diffPersonnes = $nbPersonnes - (int) $res['nb_personnes'];
         if ($diffPersonnes > 0 && !Hebergement::isAvailable((int) $res['hebergement_id'], $diffPersonnes)) {
             throw new \RuntimeException("Pas assez de places disponibles.");
@@ -135,6 +145,7 @@ class HebergementReservation {
         ]);
     }
 
+    // Annule une réservation et restitue les chambres au stock
     public static function cancel(int $id): bool {
         $res = self::getById($id);
         if (!$res || $res['statut'] === 'annulee') return false;
@@ -142,6 +153,7 @@ class HebergementReservation {
         $stmt = getDB()->prepare("UPDATE reservations_hebergement SET statut = 'annulee' WHERE id = ?");
         $stmt->execute([$id]);
 
+        // Restitue les places au stock de l'hébergement
         Hebergement::incrementDispo((int) $res['hebergement_id'], (int) $res['nb_personnes']);
 
         return true;

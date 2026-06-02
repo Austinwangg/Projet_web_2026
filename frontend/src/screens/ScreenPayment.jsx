@@ -4,15 +4,16 @@ import { createNotification } from '../services/notificationService.js';
 import api from '../services/api.js';
 
 export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, search, detailId, itinItems = [], itinNbVoyageurs = 0, itinDates = {} }) {
-  // Si le panier est vide mais qu'il y a un itinéraire, on utilise l'itinéraire
+  // Deux sources possibles : panier classique ou itinéraire personnalisé.
+  // Si le panier est vide mais qu'un itinéraire existe, on l'utilise à la place.
   const fromItinerary = cart.length === 0 && itinItems.length > 0;
   const activeItems   = fromItinerary ? itinItems : cart;
 
   const subtotal = activeItems.reduce((s, i) => s + Number(i.price ?? i.prix ?? 0), 0);
-  const taxes    = Math.round(subtotal * 0.06);
-  const total    = subtotal + taxes || 1408;
+  const taxes    = Math.round(subtotal * 0.06); // TVA 6 %
+  const total    = subtotal + taxes || 1408;    // fallback démo si panier vide
 
-  // Resolve nb_voyageurs
+  // Nombre de voyageurs : priorité vol > hôtel > premier item > recherche > défaut 2
   const flightItemTop = cart.find(i => i.kind === 'flight');
   const hotelItemTop  = cart.find(i => i.kind === 'hotel');
   const cartNb = flightItemTop?.nbVoyageurs || hotelItemTop?.nbVoyageurs
@@ -22,7 +23,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
     : 0;
   const nbVoyageurs = fromItinerary ? (itinNbVoyageurs || 1) : (cartNb || searchNb || 2);
 
-  // Nights from hotel or fallback
+  // Nombre de nuits : calculé depuis l'hôtel du panier, 7 par défaut
   const hotelItemNights = cart.find(i => i.kind === 'hotel');
   const nights = hotelItemNights
     ? Math.max(1, Math.round((new Date(hotelItemNights.dateRetour) - new Date(hotelItemNights.dateDepart)) / 86400000))
@@ -35,6 +36,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
   const [reference, setReference] = useState('');
   const [error, setError]         = useState('');
 
+  // Appelé au clic sur "Payer". Crée une ou plusieurs réservations en base selon le contenu du panier.
   const pay = async () => {
     if (!user?.id) {
       setError(lang === 'fr' ? 'Vous devez être connecté pour réserver.' : 'You must be logged in to book.');
@@ -45,6 +47,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
     setError('');
 
     try {
+      // Formate une Date en "YYYY-MM-DD" sans décalage de fuseau horaire
       const fmtLocal = (d) => {
         const dt = d instanceof Date ? d : new Date(d);
         const y  = dt.getFullYear();
@@ -53,7 +56,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         return `${y}-${m}-${day}`;
       };
 
-      // Helper : résout destination_id depuis un slug
+      // Récupère l'id numérique d'une destination depuis son slug (ex: "santorin" → 12)
       const resolveDestId = async (slug) => {
         if (!slug) return null;
         const r = await api.get(`/destinations?slug=${encodeURIComponent(slug)}`);
@@ -61,10 +64,13 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
       };
 
       const travelers = nbVoyageurs;
-      let ref = 'VV-XXXXXXX';
+      let ref = 'VV-XXXXXXX'; // sera remplacé par la référence réelle renvoyée par l'API
 
       if (fromItinerary) {
-        // ── Chemin itinéraire (inchangé) ──────────────────────────────────────
+        // ── Chemin itinéraire ────────────────────────────────────────────────
+        // L'utilisateur a construit un itinéraire personnalisé (pas de panier classique).
+
+        // Destination : lue sur le premier item ayant un slug, sinon déduite du transport
         const destSlug = itinItems.find(i => i.destSlug)?.destSlug || detailId || '';
         let destinationId = await resolveDestId(destSlug);
         if (!destinationId) {
@@ -79,13 +85,14 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         const itinTransport = itinItems.find(i => i.type === 'transport');
         const itinHeberg    = itinItems.find(i => i.type === 'hebergement');
         const itinActs      = itinItems.filter(i => i.type === 'activite');
+        // Dates issues de l'itinéraire ou fallback J+7 / J+14
         const dateDepart = itinDates?.depart || fmtLocal(new Date(Date.now() + 7  * 86400000));
         const dateRetour = itinDates?.retour || fmtLocal(new Date(Date.now() + 14 * 86400000));
 
         const res = await createReservation({
           utilisateur_id: user.id,
           destination_id: destinationId,
-          hebergement_id: itinHeberg?.ref_id  || null,
+          hebergement_id: itinHeberg?.ref_id   || null,
           transport_id:   itinTransport?.ref_id || null,
           activite_ids:   itinActs.map(i => i.ref_id).filter(Boolean),
           date_depart:    dateDepart,
@@ -97,28 +104,29 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         ref = res.data?.reference || ref;
 
       } else {
-        // ── Chemin panier ─────────────────────────────────────────────────────
+        // ── Chemin panier classique ──────────────────────────────────────────
         const hotelItem  = cart.find(i => i.kind === 'hotel');
         const flightItem = cart.find(i => i.kind === 'flight');
         const actItems   = cart.filter(i => i.kind === 'activity');
 
-        // Si l'hôtel a déjà été réservé directement (ScreenHebergement), ne pas repasser
-        // hebergement_id à createReservation pour éviter un 2ème décrement des places.
+        // Si l'hôtel a déjà été réservé depuis ScreenHebergement (alreadyReserved: true),
+        // on n'envoie pas hebergement_id ici pour éviter un 2ème décrement des places en base.
         const hebergementId = (hotelItem && !hotelItem.alreadyReserved) ? hotelItem.hebergementDbId : null;
-        const transportId   = flightItem?.transportDbId  || null;
+        const transportId   = flightItem?.transportDbId || null;
 
-        // Slug principal : transport > hôtel > première activité > detailId
+        // Destination principale : transport > hôtel > première activité > dernière destination vue
         const primarySlug = flightItem?.destSlug || hotelItem?.destSlug
           || actItems.find(i => i.destSlug)?.destSlug || detailId || '';
 
         let primaryDestId = await resolveDestId(primarySlug);
+        // Fallback : destination lue directement sur le transport en base
         if (!primaryDestId && transportId) {
           const tRes = await api.get(`/transports?id=${transportId}`);
           primaryDestId = tRes.data?.destination_id || null;
         }
         if (!primaryDestId) throw new Error(lang === 'fr' ? 'Destination introuvable. Vérifiez que votre sélection contient une destination valide.' : 'Destination not found. Make sure your selection contains a valid destination.');
 
-        // Dates
+        // Dates : priorité vol > hôtel > barre de recherche > fallback J+7/J+14
         const transportDates = cart.find(i => i.kind === 'flight' && i.dateDepart);
         const hotelDates     = cart.find(i => i.kind === 'hotel'  && i.dateDepart);
         const dateDepart = transportDates?.dateDepart
@@ -128,7 +136,8 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
           ?? hotelDates?.dateRetour
           ?? (search?.dates?.end   ? fmtLocal(search.dates.end)   : fmtLocal(new Date(Date.now() + 14 * 86400000)));
 
-        // Regrouper les activités par destination
+        // Regrouper les activités par destination (destSlug).
+        // Nécessaire car le panier peut contenir des activités de plusieurs pays différents.
         const actBySlug = {};
         for (const act of actItems) {
           const slug = act.destSlug || primarySlug;
@@ -136,7 +145,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
           actBySlug[slug].push(act);
         }
 
-        // Réservation principale (transport + hôtel + activités de la destination principale)
+        // Réservation principale : transport + hôtel + activités de la destination principale
         const primaryActIds = (actBySlug[primarySlug] || []).map(i => i.activiteDbId).filter(Boolean);
         const mainRes = await createReservation({
           utilisateur_id: user.id,
@@ -152,13 +161,14 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         });
         ref = mainRes.data?.reference || ref;
 
-        // Réservations secondaires : une par autre destination ayant des activités
+        // Réservations secondaires : une par destination supplémentaire ayant des activités.
+        // Chaque groupe génère sa propre entrée en base avec le bon destination_id.
         for (const [slug, acts] of Object.entries(actBySlug)) {
-          if (slug === primarySlug) continue;
+          if (slug === primarySlug) continue; // déjà traité ci-dessus
           const destId2 = await resolveDestId(slug);
-          if (!destId2) continue;
-          const actIds2    = acts.map(i => i.activiteDbId).filter(Boolean);
-          const subtotal2  = acts.reduce((s, i) => s + Number(i.price ?? i.prix ?? 0), 0);
+          if (!destId2) continue; // slug introuvable en base, on ignore
+          const actIds2   = acts.map(i => i.activiteDbId).filter(Boolean);
+          const subtotal2 = acts.reduce((s, i) => s + Number(i.price ?? i.prix ?? 0), 0);
           await createReservation({
             utilisateur_id: user.id,
             destination_id: destId2,
@@ -168,7 +178,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             date_depart:    dateDepart,
             date_retour:    dateRetour,
             nb_voyageurs:   travelers || 1,
-            montant_total:  Math.round(subtotal2 * 1.06),
+            montant_total:  Math.round(subtotal2 * 1.06), // TVA 6 %
             statut:         'confirmee',
           });
         }
@@ -176,7 +186,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
 
       setReference(ref);
 
-      // Notify user (non-blocking)
+      // Notification en arrière-plan — échec non bloquant
       createNotification({
         utilisateur_id: user.id,
         type:    'booking',
@@ -187,7 +197,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
       }).catch(() => {});
 
       setDone(true);
-      onPaid();
+      onPaid(); // vide le panier et l'itinéraire dans App.jsx
     } catch (err) {
       setError(err.response?.data?.error || err.message || (lang === 'fr' ? 'Erreur lors de la réservation.' : 'Booking error.'));
     } finally {
@@ -195,9 +205,11 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
     }
   };
 
+  // ── Écran de confirmation (affiché après paiement réussi) ───────────────────
   if (done) {
     return (
       <main className="container" style={{ paddingTop: 40 }}>
+        {/* Stepper : toutes les étapes cochées */}
         <div className="stepper mb-32">
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Composition' : 'Compose'}</div>
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Panier' : 'Cart'}</div>
@@ -205,6 +217,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
           <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Paiement' : 'Payment'}</div>
           <div className="step active"><div className="step-num">5</div>{lang === 'fr' ? 'Confirmation' : 'Confirmation'}</div>
         </div>
+        {/* Carte de succès avec la référence de réservation */}
         <div className="card-tile fade-up" style={{ padding: 64, textAlign: 'center' }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--primary)', color: 'var(--primary-ink)', margin: '0 auto', display: 'grid', placeItems: 'center', fontSize: 32 }}>✓</div>
           <span className="eyebrow mt-24" style={{ display: 'inline-block' }}>
@@ -221,8 +234,10 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
     );
   }
 
+  // ── Écran de paiement principal ──────────────────────────────────────────────
   return (
     <main className="container" style={{ paddingTop: 40 }}>
+      {/* Stepper : étape 4 active */}
       <div className="stepper mb-32">
         <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Composition' : 'Compose'}</div>
         <div className="step done"><div className="step-num">✓</div>{lang === 'fr' ? 'Panier' : 'Cart'}</div>
@@ -238,9 +253,14 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
         </h1>
       </div>
 
+      {/* Mise en page 2 colonnes : formulaire à gauche, récapitulatif à droite */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 56, alignItems: 'flex-start' }}>
+
+        {/* Colonne gauche : choix du moyen de paiement + formulaire */}
         <div className="card-tile" style={{ padding: 40 }}>
           <h3 className="serif mb-24" style={{ fontSize: 24 }}>{T.pay.method}</h3>
+
+          {/* Sélecteur de méthode : carte / PayPal / virement */}
           <div className="row gap-12 mb-32" style={{ flexWrap: 'wrap' }}>
             {['card', 'paypal', 'bank'].map(m => (
               <button key={m} className={`pill ${method === m ? 'active' : ''}`} onClick={() => setMethod(m)}>
@@ -249,6 +269,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             ))}
           </div>
 
+          {/* Formulaire carte bancaire */}
           {method === 'card' && (
             <div className="col gap-16 fade-up">
               <div>
@@ -272,6 +293,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             </div>
           )}
 
+          {/* Message informatif PayPal (pas de vrai redirect en démo) */}
           {method === 'paypal' && (
             <div className="card-tile center fade-up" style={{ padding: 48, background: 'var(--surface-2)' }}>
               <div className="serif" style={{ fontSize: 24, marginBottom: 8 }}>PayPal</div>
@@ -281,6 +303,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             </div>
           )}
 
+          {/* IBAN statique pour la démo virement SEPA */}
           {method === 'bank' && (
             <div className="card-tile center fade-up" style={{ padding: 48, background: 'var(--surface-2)' }}>
               <div className="serif" style={{ fontSize: 24, marginBottom: 8 }}>{lang === 'fr' ? 'Virement SEPA' : 'SEPA transfer'}</div>
@@ -289,12 +312,14 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
             </div>
           )}
 
+          {/* Message d'erreur retourné par l'API ou déclenché côté client */}
           {error && (
             <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--danger)', background: 'color-mix(in oklab, var(--danger) 10%, transparent)' }}>
               {error}
             </div>
           )}
 
+          {/* Bouton principal — désactivé pendant le traitement */}
           <button
             className="btn btn-primary btn-lg mt-32"
             style={{ width: '100%' }}
@@ -308,6 +333,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
           </div>
         </div>
 
+        {/* Colonne droite : récapitulatif du panier (max 5 lignes) */}
         <aside className="book-card">
           <div className="eyebrow mb-16">{T.cart.summary}</div>
           <div className="col gap-12">
@@ -316,6 +342,7 @@ export default function ScreenPayment({ T, lang, cart, navigate, onPaid, user, s
               const price = Number(item.price ?? item.prix ?? 0);
               return (
                 <div key={item.id || idx} className="between">
+                  {/* Titre tronqué à 28 caractères pour tenir sur une ligne */}
                   <span style={{ fontSize: 13.5 }}>{title.slice(0, 28)}{title.length > 28 ? '…' : ''}</span>
                   <span className="mono" style={{ fontSize: 13 }}>{price.toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</span>
                 </div>

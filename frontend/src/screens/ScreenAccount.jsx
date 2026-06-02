@@ -7,9 +7,12 @@ import { getHebergementReservationsByUser, cancelHebergementReservation } from '
 import api from '../services/api.js';
 
 export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUpdateUser, favorites = [], toggleFavorite }) {
+  // Onglet actif parmi : bookings | favorites | profile | notifications
   const [tab, setTab] = useState('bookings');
+  // Liste des destinations pour l'affichage des favoris (chargée une seule fois au montage)
   const [destinations, setDestinations] = useState([]);
 
+  // Charge toutes les destinations dès le montage pour pouvoir afficher les favoris
   useEffect(() => {
     api.get('/destinations').then(r => {
       const raw = Array.isArray(r.data) ? r.data : [];
@@ -21,46 +24,45 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         countryEn: d.pays_en,
         type: d.type,
         imageUrl: d.image_url || '',
-        ph: (d.ville || '').toUpperCase(),
+        ph: (d.ville || '').toUpperCase(), // texte de fallback pour le placeholder image
       })));
     }).catch(() => {});
   }, []);
 
-  // Profil
-  const [prenom, setPrenom]           = useState(user?.prenom       || '');
-  const [nom, setNom]                 = useState(user?.nom           || '');
-  const [email, setEmail]             = useState(user?.email         || '');
-  const [telephone, setTelephone]     = useState(user?.telephone     || '');
-  const [dateNaissance, setDateNais]  = useState(user?.date_naissance|| '');
+  // ── Champs du formulaire profil ────────────────────────────────────────────
+  const [prenom, setPrenom]           = useState(user?.prenom        || '');
+  const [nom, setNom]                 = useState(user?.nom            || '');
+  const [email, setEmail]             = useState(user?.email          || '');
+  const [telephone, setTelephone]     = useState(user?.telephone      || '');
+  const [dateNaissance, setDateNais]  = useState(user?.date_naissance || '');
   const [profileSaving, setProfileSaving] = useState(false);
-  const [profileMsg, setProfileMsg]   = useState('');
+  const [profileMsg, setProfileMsg]   = useState(''); // message de confirmation ou d'erreur
 
-  // Mot de passe
+  // ── Champs du formulaire changement de mot de passe ───────────────────────
   const [curPwd, setCurPwd]   = useState('');
   const [newPwd, setNewPwd]   = useState('');
   const [pwdMsg, setPwdMsg]   = useState('');
   const [pwdSaving, setPwdSaving] = useState(false);
 
-  // Réservations voyages
+  // ── Réservations voyages (table reservations) ─────────────────────────────
   const [reservations, setReservations] = useState([]);
   const [resLoading, setResLoading]     = useState(false);
-  const [resActionId, setResActionId]   = useState(null);
-
+  const [resActionId, setResActionId]   = useState(null); // id de la réservation en cours d'annulation
 
   // Activités par réservation { [resId]: [{ activite_id, nom_fr, nom_en, nb_places }] }
-  const [resActivites, setResActivites]       = useState({});
-  const [cancelActId, setCancelActId]         = useState(null); // { resId, activiteId }
+  const [resActivites, setResActivites] = useState({});
+  const [cancelActId, setCancelActId]   = useState(null); // { resId, activiteId } de l'activité en cours d'annulation
 
-  // Réservations hôtels
+  // ── Réservations hôtels (table reservations_hebergement) ──────────────────
   const [hotelReservations, setHotelReservations] = useState([]);
   const [hotelResLoading, setHotelResLoading]     = useState(false);
-  const [hotelResActionId, setHotelResActionId]   = useState(null);
+  const [hotelResActionId, setHotelResActionId]   = useState(null); // id de l'hôtel en cours d'annulation
 
-
-  // Notifications
-  const [notifs, setNotifs]       = useState([]);
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const [notifs, setNotifs]           = useState([]);
   const [notifsLoading, setNotifsLoading] = useState(false);
 
+  // Charge les réservations voyage + hôtel quand on ouvre l'onglet "bookings"
   useEffect(() => {
     if (tab === 'bookings' && user?.id) {
       setResLoading(true);
@@ -68,11 +70,12 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         .then(r => {
           const list = r.data || [];
           setReservations(list);
-          // Charger les activités de chaque réservation confirmée
+          // Pour chaque réservation active, charge aussi ses activités associées
           list.filter(res => res.statut === 'confirmee' || res.statut === 'en_attente').forEach(res => {
             api.get(`/activites?reservation_id=${res.id}`)
               .then(detail => {
                 if (Array.isArray(detail.data) && detail.data.length > 0) {
+                  // Stocke les activités indexées par id de réservation
                   setResActivites(prev => ({ ...prev, [res.id]: detail.data }));
                 }
               })
@@ -82,6 +85,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         .catch(() => setReservations([]))
         .finally(() => setResLoading(false));
 
+      // Charge en parallèle les réservations hôtel directes
       setHotelResLoading(true);
       getHebergementReservationsByUser(user.id)
         .then(r => setHotelReservations(Array.isArray(r.data) ? r.data : []))
@@ -90,6 +94,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   }, [tab, user?.id]);
 
+  // Charge les notifications uniquement quand l'onglet correspondant est ouvert
   useEffect(() => {
     if (tab === 'notifications' && user?.id) {
       setNotifsLoading(true);
@@ -100,6 +105,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   }, [tab, user?.id]);
 
+  // Enregistre les modifications du profil et met à jour l'état global de l'utilisateur
   const handleSaveProfile = async () => {
     setProfileSaving(true);
     setProfileMsg('');
@@ -107,7 +113,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
       const res = await updateProfile({
         id: user.id, nom, prenom, email, telephone, date_naissance: dateNaissance
       });
-      onUpdateUser(res.data);
+      onUpdateUser(res.data); // propage la mise à jour dans App.jsx
       setProfileMsg(lang === 'fr' ? '✓ Profil enregistré' : '✓ Profile saved');
     } catch (err) {
       setProfileMsg(err.response?.data?.error || 'Erreur lors de la sauvegarde.');
@@ -116,13 +122,14 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   };
 
+  // Envoie l'ancien et le nouveau mot de passe au backend pour validation et mise à jour
   const handleChangePassword = async () => {
     setPwdMsg('');
     setPwdSaving(true);
     try {
       await changePassword(user.id, curPwd, newPwd);
       setPwdMsg(lang === 'fr' ? '✓ Mot de passe modifié' : '✓ Password updated');
-      setCurPwd(''); setNewPwd('');
+      setCurPwd(''); setNewPwd(''); // vide les champs après succès
     } catch (err) {
       setPwdMsg(err.response?.data?.error || 'Erreur.');
     } finally {
@@ -130,26 +137,31 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   };
 
+  // Marque une notification comme lue localement et en base
   const handleMarkRead = async (id) => {
     await markRead(id);
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, lu: 1 } : n));
   };
 
+  // Marque toutes les notifications comme lues
   const handleMarkAllRead = async () => {
     await markAllRead(user.id);
     setNotifs(prev => prev.map(n => ({ ...n, lu: 1 })));
   };
 
+  // Supprime une notification de la liste et en base
   const handleDeleteNotif = async (id) => {
     await deleteNotification(id);
     setNotifs(prev => prev.filter(n => n.id !== id));
   };
 
+  // Annule une réservation hôtel directe (reservations_hebergement) et envoie une notification
   const handleCancelHotelReservation = async (r) => {
     if (!window.confirm(lang === 'fr' ? `Annuler la réservation hôtel ${r.reference} ?` : `Cancel hotel booking ${r.reference}?`)) return;
-    setHotelResActionId(r.id);
+    setHotelResActionId(r.id); // désactive le bouton pendant l'appel
     try {
       await cancelHebergementReservation(r.id);
+      // Met à jour le statut localement sans recharger toute la liste
       setHotelReservations(prev => prev.map(x => x.id === r.id ? { ...x, statut: 'annulee' } : x));
       createNotification({
         utilisateur_id: user.id,
@@ -158,13 +170,13 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         message: lang === 'fr'
           ? `Votre réservation hôtel ${r.reference} a été annulée. La chambre a été restituée.`
           : `Your hotel booking ${r.reference} has been cancelled. The room has been released.`,
-      }).catch(() => {});
+      }).catch(() => {}); // notification non bloquante
     } catch { /* silent */ } finally {
       setHotelResActionId(null);
     }
   };
 
-
+  // Retire une activité d'une réservation voyage (sans annuler le voyage entier)
   const handleCancelActivite = async (reservation, activite) => {
     if (!window.confirm(
       lang === 'fr'
@@ -174,6 +186,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     setCancelActId({ resId: reservation.id, activiteId: activite.activite_id });
     try {
       await cancelActiviteFromReservation(reservation.id, activite.activite_id);
+      // Retire l'activité du map local sans recharger
       setResActivites(prev => ({
         ...prev,
         [reservation.id]: (prev[reservation.id] || []).filter(a => a.activite_id !== activite.activite_id)
@@ -193,6 +206,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   };
 
+  // Annule une réservation voyage complète — le backend restitue toutes les places
   const handleCancelReservation = async (r) => {
     if (!window.confirm(lang === 'fr' ? `Annuler la réservation ${r.reference} ?` : `Cancel booking ${r.reference}?`)) return;
     setResActionId(r.id);
@@ -213,32 +227,40 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
     }
   };
 
+  // Nombre de notifications non lues — affiché dans le label de l'onglet
   const unreadCount = notifs.filter(n => !n.lu).length;
 
+  // Associe un emoji à chaque type de notification
   const iconForType = (type) => ({ booking: '✈️', promotion: '🎁', info: 'ℹ️', alert: '⚠️' }[type] || '🔔');
 
+  // Formate une date ISO en texte lisible selon la langue (ex: "9 juin 2026")
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Traduit le statut interne en libellé affiché
   const statusLabel = (s) => ({
-    confirmee: T.account.confirmed,
+    confirmee:  T.account.confirmed,
     en_attente: T.account.pending,
-    terminee: T.account.completed,
-    annulee: lang === 'fr' ? 'Annulé' : 'Cancelled'
+    terminee:   T.account.completed,
+    annulee:    lang === 'fr' ? 'Annulé' : 'Cancelled'
   }[s] || s);
 
+  // Classe CSS du point de couleur associé au statut
   const dotClass = (s) => ({
     confirmee: 'green', en_attente: 'amber', terminee: '', annulee: 'red'
   }[s] || '');
 
   return (
     <main className="container" style={{ paddingTop: 40 }}>
+
+      {/* Fil d'ariane */}
       <div className="mono mb-16" style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--ink-faint)' }}>
         {(lang === 'fr' ? 'ACCUEIL' : 'HOME')} / <span style={{ color: 'var(--ink)' }}>{T.account.crumb.toUpperCase()}</span>
       </div>
 
+      {/* En-tête : avatar + nom + bouton déconnexion */}
       <div className="between mb-32" style={{ alignItems: 'flex-end' }}>
         <div className="row gap-16">
           <div className="avatar" style={{ width: 72, height: 72, fontSize: 28 }}>{user?.initials || 'VV'}</div>
@@ -250,6 +272,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         <button className="btn btn-outline" onClick={onSignOut}>{T.cta.logout}</button>
       </div>
 
+      {/* Barre d'onglets — le compteur de notifs non lues s'affiche dans le label */}
       <div className="tabs mb-32">
         {[
           { id: 'bookings',      label: T.account.tabs[0] },
@@ -261,11 +284,11 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         ))}
       </div>
 
-      {/* ── Réservations ── */}
+      {/* ── Onglet : Réservations ────────────────────────────────────────────── */}
       {tab === 'bookings' && (
         <div className="col gap-32 fade-up">
 
-          {/* Voyages */}
+          {/* Section : voyages (table reservations) */}
           <div>
             <h3 className="serif mb-16" style={{ fontSize: 22 }}>
               ✈ {lang === 'fr' ? 'Mes voyages' : 'My trips'}
@@ -275,84 +298,91 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
               <p className="muted">{T.account.noBookings}</p>
             )}
             <div className="col gap-16">
-            {reservations.map(r => {
-            const destSlug = r.slug || '';
-            const destImg  = r.dest_image || null;
-            const destName = lang === 'fr'
-              ? (r.ville ? (r.pays_fr ? `${r.ville}, ${r.pays_fr}` : r.ville) : (r.slug || ''))
-              : (r.ville ? (r.pays_en ? `${r.ville}, ${r.pays_en}` : r.ville) : (r.slug || ''));
-            const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
-            return (
-              <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
-                <Placeholder label={(r.ville || destSlug).toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
-                <div>
-                  <div className="row gap-8 mb-4">
-                    <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
-                    <span className="mono muted" style={{ fontSize: 11 }}>{T.account.ref} {r.reference}</span>
-                  </div>
-                  <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>
-                    {r.ville || destSlug}
-                    {(lang === 'fr' ? r.pays_fr : r.pays_en) ? ` · ${lang === 'fr' ? r.pays_fr : r.pays_en}` : ''}
-                  </div>
-                  <div className="muted mt-4" style={{ fontSize: 13.5 }}>
-                    {formatDate(r.date_depart)} → {formatDate(r.date_retour)} · {T.account.travelers(r.nb_voyageurs)}
-                  </div>
-                  {r.transport_id && (
-                    <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
-                      <span className="tag" style={{ fontSize: 12 }}>
-                        ✈ {r.transport_depart || ''} → {r.transport_arrivee || ''}
-                        {r.compagnie ? ` · ${r.compagnie}` : ''}
-                      </span>
-                    </div>
-                  )}
-                  {/* Activités annulables individuellement */}
-                  {canCancel && resActivites[r.id]?.length > 0 && (
-                    <div className="col gap-4 mt-8">
-                      <div className="mono muted" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
-                        {lang === 'fr' ? 'ACTIVITÉS' : 'ACTIVITIES'}
+              {reservations.map(r => {
+                // Informations d'affichage de la destination
+                const destSlug = r.slug || '';
+                const destImg  = r.dest_image || null;
+                const destName = lang === 'fr'
+                  ? (r.ville ? (r.pays_fr ? `${r.ville}, ${r.pays_fr}` : r.ville) : (r.slug || ''))
+                  : (r.ville ? (r.pays_en ? `${r.ville}, ${r.pays_en}` : r.ville) : (r.slug || ''));
+                // Seules les réservations confirmées ou en attente sont annulables
+                const canCancel = r.statut === 'confirmee' || r.statut === 'en_attente';
+                return (
+                  <div key={r.id} className="card" style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: 24, padding: 20, alignItems: 'center' }}>
+                    <Placeholder label={(r.ville || destSlug).toUpperCase()} ratio="16/10" cat="ville" imageUrl={destImg} />
+                    <div>
+                      {/* Badge statut + référence */}
+                      <div className="row gap-8 mb-4">
+                        <span className="tag"><span className={`dot ${dotClass(r.statut)}`}></span>{statusLabel(r.statut)}</span>
+                        <span className="mono muted" style={{ fontSize: 11 }}>{T.account.ref} {r.reference}</span>
                       </div>
-                      {resActivites[r.id].map(a => (
-                        <div key={a.activite_id} className="row gap-6" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                      {/* Destination et dates */}
+                      <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>
+                        {r.ville || destSlug}
+                        {(lang === 'fr' ? r.pays_fr : r.pays_en) ? ` · ${lang === 'fr' ? r.pays_fr : r.pays_en}` : ''}
+                      </div>
+                      <div className="muted mt-4" style={{ fontSize: 13.5 }}>
+                        {formatDate(r.date_depart)} → {formatDate(r.date_retour)} · {T.account.travelers(r.nb_voyageurs)}
+                      </div>
+                      {/* Infos transport si un vol est associé */}
+                      {r.transport_id && (
+                        <div className="row gap-6 mt-6" style={{ flexWrap: 'wrap' }}>
                           <span className="tag" style={{ fontSize: 12 }}>
-                            ◇ {lang === 'fr' ? a.nom_fr : a.nom_en}
+                            ✈ {r.transport_depart || ''} → {r.transport_arrivee || ''}
+                            {r.compagnie ? ` · ${r.compagnie}` : ''}
                           </span>
+                        </div>
+                      )}
+                      {/* Liste des activités annulables individuellement */}
+                      {canCancel && resActivites[r.id]?.length > 0 && (
+                        <div className="col gap-4 mt-8">
+                          <div className="mono muted" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
+                            {lang === 'fr' ? 'ACTIVITÉS' : 'ACTIVITIES'}
+                          </div>
+                          {resActivites[r.id].map(a => (
+                            <div key={a.activite_id} className="row gap-6" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                              <span className="tag" style={{ fontSize: 12 }}>
+                                ◇ {lang === 'fr' ? a.nom_fr : a.nom_en}
+                              </span>
+                              {/* Bouton "retirer" désactivé pendant l'appel API */}
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                style={{ fontSize: 11, color: 'var(--danger)', padding: '1px 6px' }}
+                                disabled={cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id}
+                                onClick={() => handleCancelActivite(r, a)}
+                              >
+                                {cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id
+                                  ? '…'
+                                  : (lang === 'fr' ? '✕ retirer' : '✕ remove')}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Montant + boutons actions */}
+                    <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
+                      <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
+                      <div className="row gap-8">
+                        {canCancel && (
                           <button
                             className="btn btn-ghost btn-sm"
-                            style={{ fontSize: 11, color: 'var(--danger)', padding: '1px 6px' }}
-                            disabled={cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id}
-                            onClick={() => handleCancelActivite(r, a)}
-                          >
-                            {cancelActId?.resId === r.id && cancelActId?.activiteId === a.activite_id
-                              ? '…'
-                              : (lang === 'fr' ? '✕ retirer' : '✕ remove')}
+                            style={{ color: 'var(--danger)' }}
+                            disabled={resActionId === r.id}
+                            onClick={() => handleCancelReservation(r)}>
+                            {resActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
                           </button>
-                        </div>
-                      ))}
+                        )}
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate('detail', { id: r.slug || 'shanghai' })}>{T.account.details} →</button>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="col" style={{ alignItems: 'flex-end', gap: 8 }}>
-                  <div className="serif" style={{ fontSize: 26 }}>{Number(r.montant_total).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US')} €</div>
-                  <div className="row gap-8">
-                    {canCancel && (
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: 'var(--danger)' }}
-                        disabled={resActionId === r.id}
-                        onClick={() => handleCancelReservation(r)}>
-                        {resActionId === r.id ? '…' : (lang === 'fr' ? 'Annuler' : 'Cancel')}
-                      </button>
-                    )}
-                    <button className="btn btn-ghost btn-sm" onClick={() => navigate('detail', { id: r.slug || 'shanghai' })}>{T.account.details} →</button>
                   </div>
-                </div>
-              </div>
-            );
-            })}
+                );
+              })}
             </div>
           </div>
 
-          {/* Hôtels */}
+          {/* Section : hôtels (table reservations_hebergement) */}
           <div>
             <h3 className="serif mb-16" style={{ fontSize: 22 }}>
               🏨 {lang === 'fr' ? 'Mes hôtels réservés' : 'My hotel bookings'}
@@ -414,10 +444,11 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         </div>
       )}
 
-      {/* ── Favoris ── */}
+      {/* ── Onglet : Favoris ─────────────────────────────────────────────────── */}
       {tab === 'favorites' && (
         <div className="fade-up">
           {favorites.length === 0 ? (
+            // Message vide avec appel à l'action
             <div className="card-tile" style={{ padding: 60, textAlign: 'center', color: 'var(--ink-faint)' }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>♡</div>
               <div className="serif" style={{ fontSize: 22, marginBottom: 8 }}>
@@ -433,6 +464,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
               </button>
             </div>
           ) : (
+            // Grille des destinations favorites filtrées par id
             <div className="grid grid-4">
               {destinations.filter(d => favorites.includes(d.id)).map(d => (
                 <div key={d.id} style={{ position: 'relative' }}>
@@ -445,6 +477,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                       </div>
                     </div>
                   </button>
+                  {/* Bouton retrait des favoris superposé sur la carte */}
                   <button
                     onClick={() => toggleFavorite && toggleFavorite(d.id)}
                     style={{
@@ -464,9 +497,11 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         </div>
       )}
 
-      {/* ── Profil ── */}
+      {/* ── Onglet : Profil ──────────────────────────────────────────────────── */}
       {tab === 'profile' && (
         <div className="col gap-24 fade-up" style={{ maxWidth: 720 }}>
+
+          {/* Formulaire informations personnelles */}
           <div className="card-tile" style={{ padding: 40 }}>
             <h3 className="serif mb-24" style={{ fontSize: 24 }}>{lang === 'fr' ? 'Informations personnelles' : 'Personal information'}</h3>
             <div className="col gap-16">
@@ -494,6 +529,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                   <input className="input" type="date" value={dateNaissance} onChange={e => setDateNais(e.target.value)} />
                 </div>
               </div>
+              {/* Message de retour vert (succès) ou rouge (erreur) */}
               {profileMsg && (
                 <div style={{
                   fontSize: 13, padding: '8px 12px', borderRadius: 8,
@@ -507,6 +543,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             </div>
           </div>
 
+          {/* Formulaire changement de mot de passe */}
           <div className="card-tile" style={{ padding: 40 }}>
             <h3 className="serif mb-24" style={{ fontSize: 24 }}>{lang === 'fr' ? 'Changer le mot de passe' : 'Change password'}</h3>
             <div className="col gap-16">
@@ -533,9 +570,10 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
         </div>
       )}
 
-      {/* ── Notifications ── */}
+      {/* ── Onglet : Notifications ───────────────────────────────────────────── */}
       {tab === 'notifications' && (
         <div className="col gap-12 fade-up" style={{ maxWidth: 720 }}>
+          {/* Bouton "tout marquer comme lu" affiché uniquement si des non-lus existent */}
           {unreadCount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button className="btn btn-ghost btn-sm" onClick={handleMarkAllRead}>
@@ -549,6 +587,7 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
             </div>
           ) : (
             notifs.map((n) => (
+              // Cliquer sur une notif non lue la marque comme lue
               <div
                 key={n.id}
                 className="card-tile row gap-16"
@@ -559,10 +598,12 @@ export default function ScreenAccount({ T, lang, navigate, user, onSignOut, onUp
                   {iconForType(n.type)}
                 </div>
                 <div style={{ flex: 1 }}>
+                  {/* Titre en gras si non lue */}
                   <div style={{ fontSize: 14, fontWeight: n.lu === 0 ? 600 : 500 }}>{n.titre}</div>
                   {n.message && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{n.message}</div>}
                   <div className="muted mono" style={{ fontSize: 11, marginTop: 4 }}>{formatDate(n.created_at).toUpperCase()}</div>
                 </div>
+                {/* Point bleu indicateur de non-lu */}
                 {n.lu === 0 && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></span>}
               </div>
             ))
